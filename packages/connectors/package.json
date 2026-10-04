@@ -1,0 +1,21 @@
+{
+  "name": "@eaop/connectors",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": { ".": "./src/index.ts" },
+  "dependencies": {
+    "@eaop/audit": "workspace:*",
+    "@eaop/db": "workspace:*",
+    "@eaop/events": "workspace:*",
+    "@eaop/jobs": "workspace:*",
+    "@eaop/notifications": "workspace:*",
+    "@eaop/observability": "workspace:*",
+    "@eaop/rbac": "workspace:*",
+    "@eaop/secrets": "workspace:*",
+    "@eaop/security": "workspace:*",
+    "@eaop/shared-types": "workspace:*",
+    "@eaop/usage": "workspace:*",
+    "zod": "^3.25.76"
+  }
+}

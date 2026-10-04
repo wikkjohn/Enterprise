@@ -1,0 +1,12 @@
+{
+  "name": "@eaop/search",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": { ".": "./src/index.ts" },
+  "dependencies": {
+    "@eaop/observability": "workspace:*",
+    "@eaop/rbac": "workspace:*",
+    "@eaop/shared-types": "workspace:*"
+  }
+}

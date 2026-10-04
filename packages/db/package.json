@@ -1,0 +1,15 @@
+{
+  "name": "@eaop/db",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": { ".": "./src/index.ts", "./schema": "./src/schema/index.ts" },
+  "scripts": { "generate": "drizzle-kit generate" },
+  "dependencies": {
+    "@eaop/observability": "workspace:*",
+    "@eaop/shared-types": "workspace:*",
+    "drizzle-orm": "^0.45.3",
+    "pg": "^8.23.1"
+  },
+  "devDependencies": { "@types/pg": "^8.23.1", "drizzle-kit": "^0.31.11" }
+}

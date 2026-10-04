@@ -1,0 +1,13 @@
+{
+  "name": "@eaop/audit",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": { ".": "./src/index.ts" },
+  "dependencies": {
+    "@eaop/db": "workspace:*",
+    "@eaop/observability": "workspace:*",
+    "@eaop/shared-types": "workspace:*",
+    "zod": "^3.25.76"
+  }
+}

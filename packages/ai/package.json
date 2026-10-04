@@ -1,0 +1,21 @@
+{
+  "name": "@eaop/ai",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": { ".": "./src/index.ts" },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.131.0",
+    "@eaop/audit": "workspace:*",
+    "@eaop/db": "workspace:*",
+    "@eaop/events": "workspace:*",
+    "@eaop/observability": "workspace:*",
+    "@eaop/policies": "workspace:*",
+    "@eaop/rbac": "workspace:*",
+    "@eaop/secrets": "workspace:*",
+    "@eaop/security": "workspace:*",
+    "@eaop/shared-types": "workspace:*",
+    "@eaop/usage": "workspace:*",
+    "zod": "^3.25.76"
+  }
+}

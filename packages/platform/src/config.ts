@@ -1,0 +1,38 @@
+import { z } from "zod";
+
+const bool = z.enum(["true", "false"]).default("false").transform((v) => v === "true");
+
+export const envSchema = z.object({
+  APP_ENV: z.enum(["development", "test", "staging", "production"]).default("development"),
+  APP_URL: z.string().url().default("http://localhost:3000"),
+  /** ≥32 random bytes; signs SSO/OAuth state. */
+  APP_SECRET: z.string().min(32, "APP_SECRET must be at least 32 characters"),
+  DATABASE_URL: z.string().min(1),
+  SECRETS_PROVIDER: z.enum(["local", "aws", "azure", "vault", "gcp"]).default("local"),
+  LOCAL_SECRETS_KEY: z.string().optional(),
+  ALLOW_LOCAL_SECRETS_IN_PRODUCTION: z.string().optional(),
+  ALLOW_SELF_SERVE_SIGNUP: bool,
+  /** Allow connectors/webhooks to reach private networks (dev / on-prem only). */
+  ALLOW_PRIVATE_NETWORK_EGRESS: bool,
+  LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
+  ANTHROPIC_API_KEY: z.string().optional(),
+  OPENAI_API_KEY: z.string().optional(),
+  EMAIL_WEBHOOK_URL: z.string().url().optional().or(z.literal("").transform(() => undefined)),
+  REDIS_URL: z.string().optional(),
+  PLATFORM_NAME: z.string().default("Enterprise AI Operating Platform"),
+});
+export type PlatformEnv = z.infer<typeof envSchema>;
+
+export function loadEnv(source: Record<string, string | undefined> = process.env): PlatformEnv {
+  const parsed = envSchema.safeParse(source);
+  if (!parsed.success) {
+    const msg = parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ");
+    throw new Error(`Invalid platform configuration — ${msg}`);
+  }
+  const env = parsed.data;
+  if (env.APP_ENV === "production") {
+    if (!env.APP_URL.startsWith("https://")) throw new Error("APP_URL must be https in production");
+    if (env.ALLOW_PRIVATE_NETWORK_EGRESS) console.warn("[eaop] ALLOW_PRIVATE_NETWORK_EGRESS is enabled in production");
+  }
+  return env;
+}

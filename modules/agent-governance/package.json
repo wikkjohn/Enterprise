@@ -1,0 +1,13 @@
+{
+  "name": "@eaop/module-agent-governance",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@eaop/module-registry": "workspace:*",
+    "@eaop/shared-types": "workspace:*"
+  }
+}

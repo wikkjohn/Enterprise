@@ -1,0 +1,8 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+  - "modules/*"
+onlyBuiltDependencies:
+  - esbuild
+  - sharp
+  - "@tailwindcss/oxide"

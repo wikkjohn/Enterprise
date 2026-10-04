@@ -1,0 +1,15 @@
+{
+  "name": "@eaop/policies",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": { ".": "./src/index.ts" },
+  "dependencies": {
+    "@eaop/audit": "workspace:*",
+    "@eaop/db": "workspace:*",
+    "@eaop/events": "workspace:*",
+    "@eaop/rbac": "workspace:*",
+    "@eaop/shared-types": "workspace:*",
+    "zod": "^3.25.76"
+  }
+}
