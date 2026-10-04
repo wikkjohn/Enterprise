@@ -54,12 +54,24 @@ importers:
       '@eaop/api':
         specifier: workspace:*
         version: link:../../packages/api
+      '@eaop/audit':
+        specifier: workspace:*
+        version: link:../../packages/audit
       '@eaop/auth':
         specifier: workspace:*
         version: link:../../packages/auth
       '@eaop/design-system':
         specifier: workspace:*
         version: link:../../packages/design-system
+      '@eaop/module-registry':
+        specifier: workspace:*
+        version: link:../../packages/module-registry
+      '@eaop/observability':
+        specifier: workspace:*
+        version: link:../../packages/observability
+      '@eaop/organizations':
+        specifier: workspace:*
+        version: link:../../packages/organizations
       '@eaop/platform':
         specifier: workspace:*
         version: link:../../packages/platform
@@ -69,6 +81,9 @@ importers:
       '@eaop/shared-types':
         specifier: workspace:*
         version: link:../../packages/shared-types
+      '@eaop/usage':
+        specifier: workspace:*
+        version: link:../../packages/usage
       lucide-react:
         specifier: ^0.468.0
         version: 0.468.0(react@19.3.0)
