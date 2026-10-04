@@ -77,6 +77,13 @@ export function createRouteFactory(getPlatform: () => Platform | Promise<Platfor
           let ctx: TenantContext | undefined;
           let session: RouteArgs<unknown, unknown>["session"];
           const bearer = req.headers.get("authorization")?.match(/^Bearer\s+(eaop_\S+)$/)?.[1];
+          const allowedOrigins = [new URL(platform.env.APP_URL).origin];
+          // Public mutations (login, signup, invitation acceptance): reject cross-site browser requests
+          // (login CSRF). Non-browser clients send no Origin header and are unaffected.
+          const origin = req.headers.get("origin");
+          if (opts.auth === "public" && MUTATING.has(req.method) && origin && !allowedOrigins.includes(origin)) {
+            throw new AppError("CSRF_FAILED", undefined, { reason: "origin_mismatch" });
+          }
           if (opts.auth !== "public") {
             if (bearer && opts.auth === "any") {
               const key = await platform.apiKeys.authenticate(bearer);
@@ -90,7 +97,7 @@ export function createRouteFactory(getPlatform: () => Platform | Promise<Platfor
                 method: req.method,
                 origin: req.headers.get("origin"),
                 referer: req.headers.get("referer"),
-                allowedOrigins: [new URL(platform.env.APP_URL).origin],
+                allowedOrigins,
                 csrfHeader: req.headers.get(CSRF_HEADER),
                 csrfCookie: cookies[CSRF_COOKIE] ?? null,
               });

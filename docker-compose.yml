@@ -1,0 +1,46 @@
+# Local full-stack: Postgres + migrations + web + worker.
+#   APP_SECRET=... LOCAL_SECRETS_KEY=... docker compose up --build
+# Not a production topology: use a managed Postgres and a real secret manager.
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: eaop
+      POSTGRES_PASSWORD: eaop
+      POSTGRES_DB: eaop
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./deploy/init-db.sql:/docker-entrypoint-initdb.d/01-roles.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U eaop"]
+      interval: 5s
+      retries: 10
+
+  migrate:
+    build: { context: ., target: worker }
+    depends_on: { postgres: { condition: service_healthy } }
+    environment:
+      DATABASE_ADMIN_URL: postgres://eaop:eaop@postgres:5432/eaop
+    command: ["sh", "-c", "pnpm db:migrate && node -e \"const pg=require('pg');const c=new pg.Client({connectionString:process.env.DATABASE_ADMIN_URL});c.connect().then(()=>c.query('GRANT eaop_runtime TO eaop_app')).then(()=>c.end())\""]
+
+  web:
+    build: { context: ., target: web }
+    depends_on: { migrate: { condition: service_completed_successfully } }
+    ports: ["3000:3000"]
+    environment: &appenv
+      APP_ENV: development
+      APP_URL: http://localhost:3000
+      APP_SECRET: ${APP_SECRET:?set APP_SECRET (>=32 chars)}
+      DATABASE_URL: postgres://eaop_app:eaop_app@postgres:5432/eaop
+      SECRETS_PROVIDER: local
+      LOCAL_SECRETS_KEY: ${LOCAL_SECRETS_KEY:?set LOCAL_SECRETS_KEY (32 bytes base64)}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+
+  worker:
+    build: { context: ., target: worker }
+    depends_on: { migrate: { condition: service_completed_successfully } }
+    environment: *appenv
+
+volumes:
+  pgdata:

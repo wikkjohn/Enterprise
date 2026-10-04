@@ -1,0 +1,7 @@
+{
+  "name": "@eaop/worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "dependencies": { "@eaop/platform": "workspace:*", "@eaop/observability": "workspace:*" }
+}

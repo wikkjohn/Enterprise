@@ -1,0 +1,6 @@
+@import "tailwindcss";
+@import "@eaop/design-system/styles.css";
+
+/* Tailwind v4 scans these sources for class names. */
+@source "../../../../packages/design-system/src";
+@source "../";

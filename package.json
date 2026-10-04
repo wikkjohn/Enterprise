@@ -2,7 +2,8 @@
   "name": "enterprise-ai-operating-platform",
   "version": "0.1.0",
   "private": true,
-  "description": "Enterprise AI Operating Platform — shared enterprise core + modular applications.",
+  "type": "module",
+  "description": "Enterprise AI Operating Platform \u2014 shared enterprise core + modular applications.",
   "packageManager": "pnpm@10.28.0",
   "engines": {
     "node": ">=22"
@@ -17,10 +18,11 @@
     "test:unit": "vitest run --project unit",
     "test:integration": "vitest run --project integration",
     "db:migrate": "tsx packages/db/scripts/migrate.ts",
-    "db:seed": "tsx packages/db/scripts/seed.ts",
+    "db:seed": "tsx scripts/seed.ts",
     "db:reset": "tsx packages/db/scripts/reset.ts",
     "worker": "tsx apps/worker/src/index.ts",
-    "check": "pnpm typecheck && pnpm lint && pnpm test"
+    "check": "pnpm typecheck && pnpm lint && pnpm test",
+    "platform:admin": "tsx scripts/create-platform-admin.ts"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",
@@ -35,5 +37,8 @@
     "typescript-eslint": "^8.71.0",
     "vitest": "^3.2.7",
     "zod": "^3.25.76"
+  },
+  "dependencies": {
+    "@eaop/platform": "workspace:*"
   }
 }

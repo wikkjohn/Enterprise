@@ -108,6 +108,13 @@ describe("API conventions", () => {
     expect((await res.json()).error.code).toBe("MODULE_NOT_ENABLED");
   });
 
+  it("public mutations reject cross-site browser origins (login CSRF)", async () => {
+    const r = route({ auth: "public", body: z.object({}).passthrough(), handler: async () => ({ ok: true }) });
+    expect((await r(req("POST", "/api/v1/auth/login", { body: {}, headers: { origin: "https://evil.example" } }))).status).toBe(403);
+    expect((await r(req("POST", "/api/v1/auth/login", { body: {}, headers: { origin: ORIGIN } }))).status).toBe(201);
+    expect((await r(req("POST", "/api/v1/auth/login", { body: {} }))).status).toBe(201); // non-browser client
+  });
+
   it("rate limits public endpoints per IP", async () => {
     const r = route({ auth: "public", rateLimit: { limit: 2, windowSeconds: 60 }, handler: async () => ({ ok: true }) });
     const call = () => r(req("GET", "/api/v1/ping", { headers: { "x-forwarded-for": "198.51.100.7" } }));
