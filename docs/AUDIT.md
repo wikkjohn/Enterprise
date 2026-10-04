@@ -64,9 +64,10 @@ await platform.audit.record(ctx, {
 | AI | `ai.provider_changed`, `ai.model_changed` |
 | Policies | `policy.created`, `policy.versioned`, `policy.activated`, `policy.disabled` |
 | API keys | `api_key.created`, `api_key.revoked` |
+| Webhooks | `webhook.created`, `webhook.deleted` (resource type `webhook`; `after` holds the URL and event types on create, the URL on delete) |
 | SSO | `sso.identity_provider_changed` |
 | Data | `data.exported` |
-| Defined but not yet emitted | `webhook.created`, `webhook.deleted`, `admin.action` |
+| Defined but not yet emitted | `admin.action` |
 
 Additional literal actions emitted by services: `connector.action_executed` (connector `write`/`delete`/`execute` operations, with capability, operation, attempts, latency) and `ai.run_blocked` (`outcome: denied`, decision and reasons). Login events include `method` (`password`, `password+totp`, `oidc`) and `sessionId` in metadata; failures include a `reason` (`bad_password`, `locked`, `ip_not_allowed`, `bad_mfa_code`, `sso_not_member`, `unknown_user_or_sso_only`, `user_<status>`).
 
@@ -74,7 +75,7 @@ Modules add their own namespaced actions (e.g. `workflow.approved`) with `module
 
 ## Redaction
 
-`before`, `after` and `metadata` pass through `redact()` (`packages/observability/src/redact.ts`): values under keys matching `pass(word)?|secret|token|api[-_]?key|authorization|cookie|credential|private[-_]?key|session|otp|mfa[-_]?code` become `[REDACTED]`; string values matching provider keys (`sk-…`), platform API keys (`eaop_…_…`), `Bearer …`, AWS access key ids and PEM private keys are masked; depth is capped at 8 and arrays at 100 items. Callers should still avoid putting secrets in audit inputs. Note that `session` is a sensitive key pattern, so a metadata key such as `sessionId` is stored as `[REDACTED]`.
+`before`, `after` and `metadata` pass through `redact()` (`packages/observability/src/redact.ts`): values under keys matching `pass(word)?|secret|token|api[-_]?key|authorization|cookie|credential|private[-_]?key|session[-_]?token|otp|mfa[-_]?code` become `[REDACTED]`; string values matching provider keys (`sk-…`), platform API keys (`eaop_…_…`), `Bearer …`, AWS access key ids and PEM private keys are masked; depth is capped at 8 and arrays at 100 items. Callers should still avoid putting secrets in audit inputs. Identifiers such as `sessionId` are kept; `sessionToken` / `session_token` (and anything matching `token`) are redacted.
 
 ## Query API and export
 

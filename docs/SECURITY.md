@@ -31,7 +31,7 @@
 | **Output encoding** | JSON envelopes only from the API; React escaping in UI; CSV export neutralizes formula injection (`apps/web/src/app/api/v1/audit/export/route.ts`) |
 | **Open-redirect prevention** | Notification `actionUrl` and search hit `url` must be relative (`^\/(?!\/)`) |
 | **Rate limiting** | Token bucket per actor/IP (`packages/security/src/rate-limit.ts`): `api` 600/min, `login` 10/5 min, `ai` 60/min, `connector` per instance, plus per-route rules |
-| **SSRF** | `assertSafeOutboundUrl` for connectors (every request), webhooks (create + delivery), OIDC discovery/token endpoints, OpenAI-compatible providers, email relay; `redirect: "manual"`; 5 MB response cap for connectors |
+| **SSRF** | `assertSafeOutboundUrl` for connectors (every request), webhooks (create + delivery), OIDC discovery, authorization/token endpoints and `jwks_uri`, OpenAI-compatible providers, email relay; `redirect: "manual"`; 5 MB response cap for connectors |
 | **Secrets management** | `packages/secrets`: references in DB, values encrypted (local) or delegated (future managed providers); tenant-bound references; webhook signing secrets and API keys shown once |
 | **Audit logging** | `packages/audit`: who/what/when/where, before/after, denials recorded detached; append-only in the database |
 | **Error hygiene** | Unknown errors → `INTERNAL` with no message or stack (`packages/api/src/http.ts`); details reported server-side via `platform.errors.report` with redaction; `AppError` messages are written to be client-safe |
@@ -66,20 +66,15 @@ Aligned by category with SOC 2 Trust Services Criteria, ISO/IEC 27001:2022 Annex
 | Gap | Notes |
 |---|---|
 | Managed secret manager adapters (AWS/Azure/Vault/GCP) | Stubs only; production needs one (or the explicit local override) |
-| Shared rate limiter | In-memory per instance; `REDIS_URL` unused |
+| Shared rate limiter | In-memory per instance; a Redis-backed `RateLimiter` is an extension point (`REDIS_URL` reserved, not read) |
 | SAML sign-in, SCIM, MFA recovery codes, WebAuthn | Not implemented |
 | OIDC | Implemented but not yet validated against a real IdP |
 | CSP allows `'unsafe-inline'` scripts | Needed by the framework today; nonces/hashes not implemented |
-| `ssoEnforced` checked only for the user's default org at password login | See [AUTHENTICATION.md](AUTHENTICATION.md#security-policy-controls) |
-| Last-admin protection covers role revocation, not member suspension/removal | See [RBAC.md](RBAC.md#safeguards) |
-| Webhook create/delete not audited | `AuditActions.WEBHOOK_CREATED/DELETED` defined but unused |
-| `aiPromptRetention: "none"` still stores prompt hash and sizes | Same as `metadata` |
-| `ai.execute` accepts any `moduleId` string | Attribution only; not checked against entitlements |
 | Usage limits alert but do not block | No hard spend cap |
-| No approval workflow for `REQUIRE_APPROVAL` / `ESCALATE` | Runs are recorded as `pending_approval` only |
+| No approval workflow for `REQUIRE_APPROVAL` / `ESCALATE` | Runs are recorded as `pending_approval` only; resuming them belongs to the Agent Governance / Integration modules |
 | Client IP = last `x-forwarded-for` entry | Correct only behind a proxy that appends the client address; direct exposure lets clients set the header |
-| OIDC JWKS fetch bypasses the URL guard | `jwks_uri` from the (guarded) discovery document is fetched by `jose.createRemoteJWKSet` without `assertSafeOutboundUrl` |
 | Tracing spans not emitted; no external error sink configured | Extension points exist |
+| Prometheus endpoint needs a platform-admin browser session | `/api/v1/metrics`; no token-based scrape auth |
 | Encryption at rest of the database, backups, TLS termination | Deployment responsibility ([DEPLOYMENT.md](DEPLOYMENT.md)) |
 
 Report suspected vulnerabilities to the repository owners privately; do not open public issues.

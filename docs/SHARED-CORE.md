@@ -12,7 +12,7 @@ Purpose: the cross-cutting vocabulary.
 
 | Export | File | Notes |
 |---|---|---|
-| `ErrorCodes`, `ErrorCode`, `AppError`, `notFound`, `forbidden`, `conflict`, `notConfigured` | `errors.ts` | Every service throws `AppError(code, message?, details?, { cause, retryable })`; status comes from `ErrorCodes` |
+| `ErrorCodes`, `ErrorCode`, `AppError`, `isAppError(err, code?)`, `notFound`, `forbidden`, `conflict`, `notConfigured` | `errors.ts` | Every service throws `AppError(code, message?, details?, { cause, retryable })`; status comes from `ErrorCodes`. Identify errors with `isAppError()` (brand `Symbol.for("eaop.AppError")`), never `instanceof`: the Next.js bundle can load two copies of a workspace module |
 | `Actor`, `ActorType` (`user`/`api_key`/`system`/`agent`), `TenantContext`, `PlatformContext`, `RequestMeta`, `SYSTEM_ACTOR(component)` | `context.ts` | `TenantContext.cache` memoizes effective permissions per request |
 | `MODULE_IDS`, `ModuleId`, `OwnerId` (`ModuleId \| "core"`), `isModuleId` | `modules.ts` | Stable module ids — never rename |
 | `pageQuerySchema`, `Page<T>`, `encodeCursor`/`decodeCursor`, `MAX_PAGE_SIZE` (200), `DEFAULT_PAGE_SIZE` (50), `sortDirectionSchema` | `pagination.ts` | Keyset cursors are base64url JSON `{ t, id }` |
@@ -97,7 +97,7 @@ A job becomes `dead` when `attempts >= maxAttempts` or it throws a non-retryable
 | `EventContract`, `EventRegistry`, `PlatformEvent` | `contracts.ts` | Types must match `^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$`; one owner per type; breaking payload changes bump `version` |
 | `CORE_EVENTS` | `core-events.ts` | 22 core contracts (see below) |
 | `createEventBus(...)` → `publish`, `publishPlatform`, `subscribe(type \| "*", name, handler)`, `dispatchPending(limit)` | `bus.ts` | Transactional outbox |
-| `createWebhookService(...)` → `create`, `list`, `remove`; `signWebhook`, `WEBHOOK_SIGNATURE_HEADER` | `webhooks.ts` | Tenant webhooks |
+| `createWebhookService(...)` → `create`, `list`, `remove` (audited as `webhook.created` / `webhook.deleted` through an injected `audit` callback); `signWebhook`, `WEBHOOK_SIGNATURE_HEADER` | `webhooks.ts` | Tenant webhooks |
 
 Core event types: `organization.created`, `organization.updated`, `user.invited`, `user.joined`, `user.suspended`, `role.assigned`, `role.revoked`, `module.enabled`, `module.disabled`, `connector.created`, `connector.updated`, `connector.deleted`, `connector.failed`, `connector.health_changed`, `credential.rotated`, `credential.expiring`, `policy.activated`, `ai.run.completed`, `ai.run.failed`, `usage.threshold.exceeded`, `api_key.created`, `api_key.revoked` (the last two have `externallyVisible: false` and are never sent to webhooks).
 
@@ -143,7 +143,7 @@ Domain verification: `addDomain` returns a TXT record `eaop-verification=<token>
 
 ## `@eaop/connectors` — `packages/connectors/src`
 
-Types (`ConnectorDefinition`, `ConnectorAdapter`, `AdapterContext`, `ConnectorError`, `classifyStatus`, `parseRetryAfter`), `ConnectorCatalog`, `defaultConnectorDefinitions`, adapters (`restApiAdapter`, `graphqlAdapter`, `outboundWebhookAdapter`, `sandboxAdapter`), `createGuardedFetch`, `definitionViolations`, `isNormalisedError`, `createConnectorService`. Extension: `PlatformOverrides.extraConnectorAdapters` + `ConnectorCatalog.register`. See [CONNECTORS.md](CONNECTORS.md).
+Types (`ConnectorDefinition`, `ConnectorAdapter`, `AdapterContext`, `ConnectorError`, `isConnectorError`, `classifyStatus`, `parseRetryAfter`), `ConnectorCatalog`, `defaultConnectorDefinitions`, adapters (`restApiAdapter`, `graphqlAdapter`, `outboundWebhookAdapter`, `sandboxAdapter`), `createGuardedFetch`, `definitionViolations`, `isNormalisedError`, `createConnectorService`. Extension: `PlatformOverrides.extraConnectorAdapters` + `ConnectorCatalog.register`. See [CONNECTORS.md](CONNECTORS.md).
 
 ## `@eaop/ai` — `packages/ai/src`
 
@@ -199,4 +199,4 @@ Recipients: `userIds`, `roleKeys`, `permission` (org-wide grants only) and/or `a
 
 ## `@eaop/design-system` — `packages/design-system`
 
-Tailwind v4 theme tokens in `src/styles.css` (`@theme` variables such as `--color-background`, `--color-accent`, light and dark themes) and React components under `src/components` (e.g. `Button`, `Card`, `DataTable`, `Modal`, `Drawer`, `Form`, `States`, `CommandPalette`). This package is being built concurrently; consult the source for the current API. Apps import `@eaop/design-system/styles.css` after `@import "tailwindcss"` (see `apps/web/src/app/globals.css`).
+Tailwind v4 theme tokens in `src/styles.css` (`@theme` variables such as `--color-background`, `--color-accent`; light and dark themes) and accessible React components exported from `src/index.ts`, including `Button`, `Form` controls, `Card`, `PageHeader`, `Badge`, `States` (e.g. `NotInstalledState`), `DataTable`, `FilterBar`, `BarChart`/`LineChart`/`Sparkline`/`StatCard`, `Modal`, `Drawer`, `ConfirmDialog`, `CommandPalette`, `Menu`, `Toast`, `Tabs`, `SidebarNav`, plus hooks (`useHotkey`, `useFocusTrap`). Apps import `@eaop/design-system/styles.css` after `@import "tailwindcss"` (see `apps/web/src/app/globals.css`).

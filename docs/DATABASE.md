@@ -121,7 +121,7 @@ select set_config('app.current_org_id', $org, true),
 - **`scopeOf(ctx)`** includes `userId` only for user actors with a UUID id.
 - Tenant scope validates the organization id is a UUID before opening the transaction.
 
-`withSystem` is for auth bootstrap, session lookup, org provisioning, workers, retention and cross-tenant uniqueness checks. Every call passes a `reason` string (for code review; it is not logged).
+`withSystem` is for auth bootstrap, session lookup, org provisioning, workers, retention and cross-tenant uniqueness checks. Every call passes a `reason` string; it is greppable documentation of why RLS is bypassed and is not logged.
 
 ## Migrations
 
@@ -147,7 +147,7 @@ Current core migrations:
 
 1. Edit `packages/db/src/schema/*.ts`.
 2. `pnpm --filter @eaop/db generate` (drizzle-kit; config in `packages/db/drizzle.config.ts`, output `packages/db/migrations`).
-3. **Check the filename.** `migrations/meta/_journal.json` only knows `0000_core_schema`, so drizzle-kit will name its next file `0001_<words>.sql`, sharing a prefix with the hand-written `0001_tenant_isolation_and_security.sql`. The runner orders lexically and records by filename, so on a fresh database the order between the two depends on the generated words. Rename the generated file to the next free number (e.g. `0002_...`) and update its `tag` in `_journal.json` to match.
+3. **Filenames**: `drizzle.config.ts` sets `migrations: { prefix: "timestamp" }`, so generated files get a timestamp prefix and sort after the hand-written `0000_`/`0001_` files. Review the generated SQL before committing.
 4. For every new tenant-owned table add a hand-written SQL migration (or append to the generated one) calling `SELECT eaop_enable_tenant_rls('<table>');` — without it the runtime role has no grants on the table at all, and the release-blocker test fails if `organization_id` exists without forced RLS.
 5. Never edit an applied migration; add a new one.
 

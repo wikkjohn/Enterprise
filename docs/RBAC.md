@@ -118,13 +118,13 @@ The built-in types `user`, `system`, `api_key` cannot be overridden.
 | **`platform.admin` never in tenants** | Rejected in custom roles; `platform_admin` role cannot be assigned (`NOT_FOUND`) or listed; `org_admin` excludes it |
 | **Non-delegable API key scopes** | `platform.admin`, `apikey.manage`, `role.manage` |
 | **Separation of duties** (`SOD_CONSTRAINTS`) | A member may not hold `auditor` together with `org_admin`, or `auditor` together with `security_admin` → `CONFLICT` "Separation of duties: …" |
-| **Last-admin protection** | Revoking an org-wide `org_admin` assignment is refused when it is the last one held by an active member → `CONFLICT` "An organization must keep at least one administrator." |
+| **Last-admin protection** | Revoking an org-wide `org_admin` assignment is refused when it is the last one held by an active member (`CONFLICT` "An organization must keep at least one administrator."), and suspending/removing the last active org-wide `org_admin` membership is refused (`CONFLICT` "An organization must keep at least one active administrator.") |
 | **Self-change prevention** | Users cannot assign or revoke their own roles, nor change their own membership status → `FORBIDDEN` |
 | **System roles immutable** | Edit/delete → `FORBIDDEN` |
 | **Immediate effect** | Effective permissions are read per request (only memoized within one request); suspension/removal applies on the next request |
 | **Suspended organizations** | Every permission check returns `ORGANIZATION_SUSPENDED`; API keys of non-active orgs stop authenticating |
 
-Known gaps: last-admin protection covers role revocation only — suspending or removing the last administrator's membership (`PATCH /api/v1/members/:id`) is not blocked, apart from self-change prevention. SoD constraints are checked on `assign`, not on role definition edits.
+Known gap: SoD constraints are checked on `assign`, not on custom role definition edits.
 
 ## Platform admin vs tenant data
 

@@ -4,7 +4,7 @@
 
 | Layer | Location | Responsibility | May depend on |
 |---|---|---|---|
-| Delivery | `apps/web` (UI + `/api/v1` route handlers), `apps/worker` | HTTP, cookies, Server Components, background loop | `@eaop/platform`, `@eaop/api`, `@eaop/design-system` |
+| Delivery | `apps/web` (UI pages in `src/app/(auth)` and `src/app/(app)`, `/api/v1` route handlers), `apps/worker` | HTTP, cookies, Server Components, client components, background loop | `@eaop/platform`, `@eaop/api`, `@eaop/design-system` |
 | HTTP kit | `packages/api` | `route()` wrapper: auth, CSRF, rate limit, entitlement, permission, validation, idempotency, envelopes | `@eaop/platform` and below |
 | Composition root | `packages/platform` | `createPlatform(env)` builds every service once, installs module manifests, exposes `bootstrap()` | all core packages, `modules/*` |
 | Domain services | `packages/{auth,organizations,rbac,module-registry,connectors,ai,policies,notifications,usage,search}` | Business rules; every tenant call takes a `TenantContext` | infrastructure packages |
@@ -43,7 +43,7 @@ Every handler under `apps/web/src/app/api/v1` is built with `route({...})` from 
 | 4 | Authentication | `public`: none. `any` + `Authorization: Bearer eaop_...`: `apiKeys.authenticate` → API-key actor (no CSRF). Otherwise: `eaop_session` cookie required, `verifyCsrf` (origin/referer + `x-csrf-token` == `eaop_csrf` cookie for mutating methods), `auth.resolve(token)` |
 | 5 | MFA gate | Org requires MFA and user not enrolled → `MFA_REQUIRED` unless `allowDuringMfaEnrollment` |
 | 6 | Tenant gate | `auth: "session"` without an active organization → `FORBIDDEN` |
-| 7 | Rate limit | Key `api:<org>:<actor>` or `ip:<ip>:<path>`; rule `opts.rateLimit ?? RATE_LIMITS.api` (600/60 s) |
+| 7 | Rate limit | Authenticated routes without a custom rule share the per-actor bucket `api:<org>:<actor>` (`RATE_LIMITS.api`, 600/60 s); routes with `opts.rateLimit`, and all public routes, get their own bucket keyed by `<actor or ip>:<METHOD>:<path>` |
 | 8 | Entitlement | `opts.module` → `modules.requireEnabled` (`MODULE_NOT_ENABLED`) |
 | 9 | Authorization | `opts.permission` → `authorizer.require` (denials audited) |
 | 10 | Validation | JSON body ≤ 2 MB, `Content-Type: application/json`, parsed with `opts.body` zod schema; query parsed with `opts.query` |
@@ -95,12 +95,7 @@ A failing event subscriber is retried individually via an `events.redeliver` job
 
 | Item | Where | Impact |
 |---|---|---|
-| UI pages in progress | `apps/web/src/app/(auth)`, `apps/web/src/app/(app)`, `apps/web/src/components` are being written concurrently and were uncommitted when these docs were written | Treat UI routes as unstable; the API is the stable surface |
-| Rate limiter is per process | `packages/security/src/rate-limit.ts` | Limits multiply by replica count; `REDIS_URL` is accepted by config but unused |
+| Rate limiter is per process | `packages/security/src/rate-limit.ts` | Limits multiply by replica count; `REDIS_URL` is reserved and not read |
 | Secret managers other than `local` are stubs | `packages/secrets/src/index.ts` | Production requires implementing `SecretStore` (or `ALLOW_LOCAL_SECRETS_IN_PRODUCTION=true`) |
 | `Tracer` is created but not called anywhere | `packages/observability/src/tracing.ts` | No spans are emitted yet |
-| `withSystem` doc comment says calls are logged; they are not | `packages/db/src/client.ts` | System-scope usage is only visible by `reason` strings in code |
-| Webhook create/delete are not audited (`AuditActions.WEBHOOK_CREATED/DELETED` unused) | `packages/events/src/webhooks.ts` | Gap in audit coverage |
 | SAML sign-in, SCIM, MFA recovery codes | `packages/auth` | Not implemented |
-| `.env.example` omits `APP_SECRET` and several optional variables | `.env.example` | See [DEPLOYMENT.md](DEPLOYMENT.md#environment-variables) |
-| Next drizzle-kit migration will be named `0001_*` | `packages/db/migrations/meta/_journal.json` has only `0000` | See [DATABASE.md](DATABASE.md#migrations) |

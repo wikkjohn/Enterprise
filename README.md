@@ -11,7 +11,7 @@ This directory is a self-contained pnpm monorepo. It lives under `platform/` ins
 ```
                 ┌──────────────────────────────────────────────────────────────┐
  Browser ──────▶│ apps/web  (Next.js 15 App Router, one deployable)            │
- API client ───▶│   UI pages (in progress)   +   /api/v1/** route handlers     │
+ API client ───▶│   UI pages (App Router)    +   /api/v1/** route handlers     │
  (Bearer key)   │                               └─ packages/api route() wrapper │
                 └───────────────┬──────────────────────────────────────────────┘
                                 │ createPlatform(env)  — composition root
@@ -55,12 +55,10 @@ CREATE DATABASE eaop_test OWNER eaop;
 
 ```bash
 cp .env.example .env
-# Generate the two secrets and paste them into .env
-node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"     # LOCAL_SECRETS_KEY
-node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"  # APP_SECRET (>= 32 chars)
+# Generate the two secrets and paste them into .env (APP_SECRET=, LOCAL_SECRETS_KEY=)
+node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"  # APP_SECRET (required, >= 32 chars)
+node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"     # LOCAL_SECRETS_KEY (32 bytes)
 ```
-
-`APP_SECRET` is **required** by `packages/platform/src/config.ts` but is not listed in `.env.example` — add the line `APP_SECRET=<value>` yourself.
 
 Nothing in the repo loads `.env` automatically (scripts read `process.env`). Export it into your shell before running commands:
 
@@ -92,11 +90,23 @@ pnpm check       # all three
 
 Alternative: `docker compose up --build` (requires `APP_SECRET` and `LOCAL_SECRETS_KEY` in the environment) runs Postgres, migrations, web and worker. It is a local stack, not a production topology — see [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
+## Web UI
+
+Next.js App Router pages in `apps/web/src/app`:
+
+| Group | Routes |
+|---|---|
+| `(auth)` | `/login` (with SSO discovery), `/mfa`, `/mfa/enroll`, `/invite/[token]`, `/forgot-password`, `/reset-password` |
+| `(app)` | `/` (overview), `/m/[module]/[[...rest]]` (module pages: "not yet installed" / "not enabled" with an enable action), `/notifications`, `/settings/profile` (password, MFA, sessions), `/help`, `/platform` (platform-admin org provisioning) |
+| `(app)/admin` | `/admin`, `/admin/organization`, `/admin/users`, `/admin/roles`, `/admin/modules`, `/admin/connectors`, `/admin/connectors/[id]`, `/admin/ai-providers`, `/admin/ai-runs`, `/admin/policies`, `/admin/policies/[key]`, `/admin/audit`, `/admin/webhooks`, `/admin/security`, `/admin/usage`, `/admin/api-keys`, `/admin/health` |
+
+The shell (`apps/web/src/components/app-shell.tsx`) renders module navigation from `modules.navigation(ctx)` and admin navigation from `apps/web/src/lib/admin-nav.ts` (each entry permission-filtered), plus the organization switcher, ⌘K command palette (backed by `/api/v1/search`), notifications and account menu. Every page re-checks permissions server-side through service calls with `viewer.ctx`.
+
 ## Repository layout
 
 | Path | Contents |
 |---|---|
-| `apps/web` | Next.js 15 app: `/api/v1/**` route handlers (`src/app/api/v1`), server helpers (`src/lib/*.ts`), UI (being built) |
+| `apps/web` | Next.js 15 app: `/api/v1/**` route handlers (`src/app/api/v1`), server helpers (`src/lib/*.ts`), UI (`src/app/(auth)`, `src/app/(app)`, `src/components`) |
 | `apps/worker` | Background worker loop (`src/index.ts`) |
 | `packages/shared-types` | Error model, contexts/actors, pagination, module ids, policy effects |
 | `packages/observability` | JSON logger, correlation ids, metrics, span helper, redaction |
@@ -118,7 +128,7 @@ Alternative: `docker compose up --build` (requires `APP_SECRET` and `LOCAL_SECRE
 | `packages/search` | Federated search over registered providers |
 | `packages/platform` | `createPlatform()` composition root, env config, health, error reporter, retention |
 | `packages/api` | Framework-agnostic HTTP kit: `createRouteFactory()` / envelopes |
-| `packages/design-system` | Tailwind v4 tokens + accessible React components (being built) |
+| `packages/design-system` | Tailwind v4 tokens + accessible React components |
 | `modules/*` | Six placeholder module manifests |
 | `tests/` | `unit/`, `integration/`, `helpers/` |
 | `scripts/` | `seed.ts`, `create-platform-admin.ts` |
@@ -145,9 +155,9 @@ Alternative: `docker compose up --build` (requires `APP_SECRET` and `LOCAL_SECRE
 | AI: OpenAI / OpenAI-compatible / Azure OpenAI / local | Implemented (Chat Completions) | No OpenAI models pre-seeded |
 | AI: Google, Bedrock | Configuration only | Never routed |
 | Secret managers AWS / Azure / Vault / GCP | Fail-closed stubs | Only `local` works; production needs an implementation |
-| Redis-backed rate limiter | Not implemented | In-memory limiter is per instance; `REDIS_URL` is parsed but unused |
+| Redis-backed rate limiter | Not implemented | In-memory limiter is per instance; `REDIS_URL` is reserved (commented in `.env.example`, not read) |
 | Email | Requires credentials | Webhook relay you operate (`EMAIL_WEBHOOK_URL`) |
-| Web UI pages | In progress | Being built concurrently (uncommitted at time of writing): `(auth)` routes (`/login`, `/mfa`, `/mfa/enroll`, `/invite/[token]`, `/forgot-password`, `/reset-password`) and `(app)` routes (`/`, `/m/[module]`, `/settings/profile`, `/notifications`, `/help`, `/admin/*`, `/platform`) |
+| Web UI | Implemented | Sign-in/MFA/invitation/reset flows, app shell, admin console, platform console — see below |
 | Six modules | Placeholders | Catalog shows "not installed"; cannot be enabled |
 
 No compliance certification is claimed. See [docs/SECURITY.md](docs/SECURITY.md).

@@ -59,7 +59,7 @@ Called by `route()` for unexpected (non-`AppError`, non-zod) errors and by the w
 
 | Field | Tenant admin sees | Platform admin (also holding `observability.read`) sees |
 |---|---|---|
-| `services` | `database` (state + latency), `job_queue`, `event_bus` | same |
+| `services` | `database` (state + latency), `job_queue`, `event_bus` (from the outbox) | same |
 | `queue` | `null` (`job_queue` state `unknown`) | job counts by status + oldest queued age; `degraded` if any `dead` job or oldest > 600 s |
 | `failedJobs` | Own org's 15 most recent `failed`/`dead` jobs | All orgs |
 | `connectors` | Own org: total, counts by health, up to 20 failing | same (scoped to active org) |
@@ -68,7 +68,7 @@ Called by `route()` for unexpected (non-`AppError`, non-zod) errors and by the w
 | `recentErrors` | Own org's `error`/`critical` rows from the last 7 days (25) | All orgs |
 | `overall` | `unhealthy` if any service unhealthy; `degraded` if any degraded or any failing connector | same |
 
-`event_bus` is currently always reported `healthy` (no probe). The Docker image's `HEALTHCHECK` calls `/api/v1/health`.
+`event_bus` is derived from `event_outbox`: `degraded` when any row is `dead` or any `pending`/`failed` row is older than 10 minutes (message `<n> dead, <m> undelivered >10 min`), otherwise `healthy`. The Docker image's `HEALTHCHECK` calls `/api/v1/health`.
 
 ## Events and jobs observability
 

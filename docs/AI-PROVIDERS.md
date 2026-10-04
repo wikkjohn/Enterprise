@@ -75,7 +75,7 @@ Input schema `aiExecuteSchema`:
 
 | Field | Notes |
 |---|---|
-| `moduleId` (required) | Owner of the call: `"core"` or a module id (free-form string ≤ 64; not validated against entitlements) |
+| `moduleId` (required) | Owner of the call: `"core"` or the id of a module **enabled for the tenant**; anything else → `MODULE_NOT_ENABLED` (checked before routing) |
 | `useCase` (required) | `^[a-z][a-z0-9_.-]{1,100}$` |
 | `system?`, `messages` (1–200) | Content |
 | `maxTokens` | 1 – 128,000, default 4,000 |
@@ -89,7 +89,7 @@ Input schema `aiExecuteSchema`:
 Steps (`packages/ai/src/service.ts`):
 
 1. `authorizer.require(ctx, "ai.use")` (skipped for system actors).
-2. Validate input; rate limit `ai:<org>:<actor>` with `RATE_LIMITS.ai` (60 / 60 s) — the HTTP route applies the same rule again under its own key.
+2. Validate input; reject a `moduleId` other than `"core"` that is not an enabled module (`MODULE_NOT_ENABLED`); rate limit `ai:<org>:<actor>` with `RATE_LIMITS.ai` (60 / 60 s) — the HTTP route applies the same rule again under its own key.
 3. Read the org's `aiPromptRetention`.
 4. Route (above).
 5. **Policy**: `policies.evaluateKind(ctx, "ai_usage", { subject: { type, id }, resource: { type: "ai_model", id: model, attributes: { moduleId, useCase, tier, provider, model } }, action: "ai.generate", context: { dataClassification } })`. No active `ai_usage` policy ⇒ `ALLOW`.
@@ -137,7 +137,7 @@ Create with `POST /api/v1/policies { key, name, kind: "ai_usage", definition }`,
 |---|---|
 | `full` | Everything above plus `request` (system + messages after redaction hooks) and `response` (`{ text, finishReason }`) |
 | `metadata` (default) | No request/response content; hash and sizes stored |
-| `none` | Currently identical to `metadata`: the hash and sizes are still written |
+| `none` | No content and no derivatives: `prompt_hash`, `prompt_chars`, `response_chars`, `request`, `response` are all NULL |
 
 Runs are deleted after `aiRunDays` by the retention job. Read with `GET /api/v1/ai/runs?moduleId=&status=&limit=&cursor=` and `GET /api/v1/ai/runs/:id` (`ai.run.read`).
 

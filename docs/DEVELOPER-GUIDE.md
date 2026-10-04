@@ -7,7 +7,7 @@
 - **Type imports**: `@typescript-eslint/consistent-type-imports` with inline style — `import { type Foo, bar } from "..."`.
 - **Unused variables** are errors unless prefixed with `_`.
 - **No `console.log`** (only `warn`/`error`), except in `**/scripts/**` and `apps/worker/**`. Use `platform.logger`.
-- **Errors**: throw `AppError(code, message?, details?)` or the helpers `notFound`, `forbidden`, `conflict`, `notConfigured`. Messages and `details` may reach clients — no secrets, no stack traces, no SQL.
+- **Errors**: throw `AppError(code, message?, details?)` or the helpers `notFound`, `forbidden`, `conflict`, `notConfigured`. Messages and `details` may reach clients — no secrets, no stack traces, no SQL. Detect them with `isAppError(err, code?)` / `isConnectorError(err)`, never `instanceof`.
 - **Validation**: zod at the route boundary *and* inside services (services are called from Server Components, jobs and modules too).
 - **Tenant context**: every tenant service method takes `ctx: TenantContext` first and calls `authorizer.require` before doing anything else. Never take an organization id from input.
 - **DB access**: `db.withTenant(scopeOf(ctx), tx => ...)`; query operators from `@eaop/db` (`eq`, `and`, `sql`, …). Use `withSystem("<area>.<reason>", ...)` only for genuinely platform-level work.
@@ -74,7 +74,7 @@ Send `x-request-id` (8–128 chars of `A-Za-z0-9._:-`) to correlate; otherwise o
 
 ### Rate limiting
 
-Default `RATE_LIMITS.api` = 600 requests / 60 s per `(organization, actor)`; public routes are keyed by `(IP, path)`. Routes can set `rateLimit`. On limit: `429 RATE_LIMITED` + `Retry-After`.
+Default `RATE_LIMITS.api` = 600 requests / 60 s, shared by all routes of one `(organization, actor)` (bucket `api:<org>:<actor>`). A route with its own `rateLimit` gets a separate bucket per actor, method and path (`api:<org>:<actor>:<METHOD>:<path>`); public routes are always keyed `ip:<ip>:<METHOD>:<path>`. On limit: `429 RATE_LIMITED` + `Retry-After`.
 
 ## Route options
 
@@ -126,6 +126,19 @@ export default async function ConnectorsPage() {
 
 `getViewer()` (request-cached with React `cache`) resolves the session cookie via `auth.resolve`, and returns `{ user, ctx, organization, organizations, permissions, navigation, mfaEnrollmentRequired }`, or `null` when there is no session or no active org. `viewer.permissions` and `can()` are for hiding UI; the service call with `viewer.ctx` is the real check.
 
+## Web UI structure
+
+| Piece | Location |
+|---|---|
+| Auth pages (`/login`, `/mfa`, `/mfa/enroll`, `/invite/[token]`, `/forgot-password`, `/reset-password`) | `apps/web/src/app/(auth)`, forms in `apps/web/src/components/auth/forms.tsx` |
+| App pages (`/`, `/admin/*`, `/m/[module]/[[...rest]]`, `/notifications`, `/settings/profile`, `/help`, `/platform`) | `apps/web/src/app/(app)` |
+| Shell (sidebar with module + admin nav, org switcher, ⌘K palette, notifications, account menu) | `apps/web/src/components/app-shell.tsx`, layout `apps/web/src/app/(app)/layout.tsx` |
+| Admin navigation entries (href, label, icon, permission) | `apps/web/src/lib/admin-nav.ts` (`ADMIN_NAV`; plain module so Server Components can import it) |
+| Admin client components | `apps/web/src/components/admin/*.tsx` |
+| Mutations | `useMutation()` and `ActionButton` in `apps/web/src/components/actions.tsx` (calls `apiFetch`, toasts the result, `router.refresh()`; optional confirmation dialog) |
+
+Pattern: a Server Component page calls `requireViewer()`, checks `can(viewer, perm)` for affordances, loads data with services using `viewer.ctx`, and renders a client component with plain data; the client component mutates through `/api/v1` with `apiFetch` / `ActionButton`.
+
 ## Client-side calls
 
 ```ts
@@ -167,20 +180,19 @@ const conn = await apiFetch<{ id: string }>("/connectors", {
 
 ## Environment for local commands
 
-Scripts read `process.env` directly; export your `.env` first (`set -a; . ./.env; set +a`). `APP_SECRET` must be set (≥ 32 chars) even though `.env.example` omits it. Next.js (`pnpm dev`) inherits the shell environment.
+Scripts read `process.env` directly; export your `.env` first (`set -a; . ./.env; set +a`). `.env.example` lists every variable, including the required `APP_SECRET` (≥ 32 chars). Next.js (`pnpm dev`) inherits the shell environment.
 
 ## Common pitfalls
 
 - **Using `withSystem` to read tenant data** on a user's behalf bypasses RLS. Use `withTenant(scopeOf(ctx))`.
 - **New table without `eaop_enable_tenant_rls`**: the runtime role has no grants (queries fail) and the release-blocker test fails.
 - **Nested scopes**: a nested `withTenant` for a *different* org (or `withSystem` inside `withTenant`) opens a second connection and transaction; it does not see uncommitted outer writes, and holding row locks in the outer transaction can deadlock. Keep cross-scope work outside.
-- **Audit/log key names**: keys matching `password|secret|token|api_key|authorization|cookie|credential|private_key|session|otp|mfa_code` are redacted — `sessionId` in metadata is stored as `[REDACTED]`.
+- **Audit/log key names**: values under keys matching `password|secret|token|api_key|authorization|cookie|credential|private_key|session_token|otp|mfa_code` are redacted; identifiers such as `sessionId` are kept.
 - **Unregistered event types or notification types** throw `INTERNAL` at publish/notify time; register them first.
 - **`ctx` on `public` / `session_any` routes** is typed `TenantContext` but may be `undefined`.
 - **API keys on `session` routes** fail with `401` — use `auth: "any"` for machine-accessible endpoints.
 - **`APPROVAL_REQUIRED`** is thrown as an error with HTTP 202; clients must treat it as "not executed".
-- **Per-route `rateLimit` on authenticated routes** uses the same bucket key (`api:<org>:<actor>`) as every other route, so it is not an independent per-route budget; public routes are keyed per path.
 - **POST returns 201** unless you set `status`.
-- **drizzle-kit naming**: the next generated migration will start with `0001_`; rename it (see [DATABASE.md](DATABASE.md#changing-the-core-schema)).
-- **Module migrations in tests**: not applied by `tests/helpers/global-setup.ts` yet.
+- **Never use `instanceof AppError` / `instanceof ConnectorError`.** Next.js can bundle two copies of a workspace package, so `instanceof` silently fails across copies (a 403 became a 500 before this was fixed). Use `isAppError()` / `isConnectorError()`; `errorResponse` also recognises duplicated `ZodError`s by shape.
+- **Server Components must not pass functions to client components** (e.g. a `DataTable` `cell` renderer). Keep tables and other callback-driven UI in client components under `apps/web/src/components` and pass them plain data.
 - **Effective permissions are memoized per `ctx.cache`**: reuse one `ctx` per request, but do not reuse a `ctx` across requests (and create a new `cache: new Map()` for system contexts you build).

@@ -30,7 +30,7 @@ Validated by `envSchema` in `packages/platform/src/config.ts` (the process fails
 |---|---|---|---|
 | `APP_ENV` | no | `development` | `development` / `test` / `staging` / `production`. Production: `APP_URL` must be `https://`; sandbox connector/provider excluded; HSTS + `Secure` cookies; local secrets refused |
 | `APP_URL` | no | `http://localhost:3000` | Public origin. Used for CSRF origin checks, OIDC/OAuth redirect URIs, invitation and reset links |
-| `APP_SECRET` | **yes** | — | ≥ 32 characters. HMAC key for SSO state and connector OAuth state. **Missing from `.env.example`** |
+| `APP_SECRET` | **yes** | — | ≥ 32 characters. HMAC key for SSO state and connector OAuth state |
 | `DATABASE_URL` | **yes** | — | Runtime role (non-superuser, no BYPASSRLS, member of `eaop_runtime`) |
 | `SECRETS_PROVIDER` | no | `local` | `local` / `aws` / `azure` / `vault` / `gcp`; only `local` is implemented |
 | `LOCAL_SECRETS_KEY` | with `local` | — | base64 of exactly 32 bytes |
@@ -41,7 +41,6 @@ Validated by `envSchema` in `packages/platform/src/config.ts` (the process fails
 | `ANTHROPIC_API_KEY` | no | — | Enables the platform `anthropic` provider at bootstrap |
 | `OPENAI_API_KEY` | no | — | Enables the platform `openai` provider (no models pre-seeded) |
 | `EMAIL_WEBHOOK_URL` | no | — | Email relay; empty = email disabled (password reset and email notifications are not sent) |
-| `REDIS_URL` | no | — | Parsed but **unused** (no Redis limiter implemented) |
 | `PLATFORM_NAME` | no | `Enterprise AI Operating Platform` | TOTP issuer name |
 
 Used outside `envSchema`:
@@ -54,7 +53,7 @@ Used outside `envSchema`:
 | `TEST_DATABASE_ADMIN_URL`, `TEST_DATABASE_URL`, `TEST_DATABASE_APP_ROLE` | Integration tests (`tests/helpers/env.ts`) |
 | `PORT`, `HOSTNAME`, `NODE_ENV` | Next.js standalone server (set in the `Dockerfile`) |
 
-`.env.example` comments say `DATABASE_ADMIN_URL` is used by `db:seed`; the seed actually runs through `createPlatform` and therefore uses `DATABASE_URL`.
+`REDIS_URL` is not read by the platform; it appears only as a commented, reserved entry in `.env.example`. `pnpm db:seed` runs through `createPlatform`, i.e. with `DATABASE_URL`.
 
 ### Email relay contract
 

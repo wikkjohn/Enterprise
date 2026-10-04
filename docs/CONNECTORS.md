@@ -23,7 +23,7 @@ Connectors are the **only** path by which platform code (core or modules) calls 
 | `configSchema` / `configFields` | zod schema + UI fields. Config keys that look like secrets (`secret`, `password`, `token`, `api_key`, `private_key` — unless the key also contains `header`, `prefix` or `url`) are rejected |
 | `credentialFields` | Per auth type; secret fields are `secret: true` and never echoed |
 | `rateLimit.requestsPerMinute` | Default; tenants can override per instance |
-| `oauth?` | `{ authorizationUrl, tokenUrl, defaultScopes, usePkce? }`; `{placeholders}` are filled from instance config (e.g. `{tenantId}`) |
+| `oauth?` | `{ authorizationUrl, tokenUrl, defaultScopes }`; `{placeholders}` are filled from instance config (e.g. `{tenantId}`) |
 | `urlConfigKeys?` | Config keys that must pass the SSRF guard on save |
 
 ### Adapter interface
@@ -109,7 +109,7 @@ Mutations are audited (`connector.created/updated/deleted/tested`, `connector.cr
 | **Client credentials** (`rest_api` with `authType: "oauth2"`, config `tokenUrl`, optional `oauthScope`, credentials `clientId`/`clientSecret`) | Implemented in `restApiAdapter.refreshCredentials`. Used when testing a connector without an `accessToken`, and once per `execute` after an `auth` error; the new `accessToken` is stored via `secrets.rotate` |
 | **Authorization code** (definitions with `oauth`) | `startOAuth` requires `clientId` already stored, builds `state = base64url({ c: connectorId, o: orgId, n: nonce, e: +10 min }).HMAC(APP_SECRET)` and returns the authorization URL (`redirect_uri = ${APP_URL}/api/v1/connectors/oauth/callback`, scopes = instance scopes or `defaultScopes`). The callback (session route) verifies the HMAC, expiry and that the state's org equals the caller's active org, exchanges the code through the guarded fetch, and stores `accessToken`/`refreshToken`. Audited as `connector.credential_rotated` with `via: "oauth_authorization_code"` |
 
-Limitations: only `contract_only` definitions currently declare `oauth`, so the authorization-code flow can obtain tokens but no shipped adapter can use them yet; `usePkce` is declared on some definitions but `startOAuth` does not send a PKCE challenge; there is no `refresh_token` grant implementation (OAuth credentials are skipped by the expiring-credential alert on the assumption they refresh automatically).
+Limitations: only `contract_only` definitions currently declare `oauth`, so the authorization-code flow can obtain tokens but no shipped adapter can use them yet; the flow sends no PKCE challenge (confidential client with `client_secret`); there is no `refresh_token` grant implementation (OAuth credentials are skipped by the expiring-credential alert on the assumption they refresh automatically).
 
 ## Execution pipeline (`execute`)
 
@@ -151,7 +151,7 @@ Credentials expiring within 7 days (non-OAuth, `active`) enqueue `connectors.cre
 
 ## Adding an adapter
 
-1. Implement `ConnectorAdapter` (use `ctx.fetch`, `classifyStatus(res.status, res.headers.get("retry-after"))`, throw `ConnectorError`; never log credentials).
+1. Implement `ConnectorAdapter` (use `ctx.fetch`, `classifyStatus(res.status, res.headers.get("retry-after"))`, throw `ConnectorError`, test errors with `isConnectorError()` rather than `instanceof`; never log credentials).
 2. Flip the definition to `availability: "available"` (replace `contractOnly({...})` with a full definition: real `configSchema`, `configFields`, `urlConfigKeys`, `rateLimit`).
 3. Register the adapter: add it to the `adapters` list in `createPlatform` (`packages/platform/src/platform.ts`), or pass `extraConnectorAdapters` via `PlatformOverrides`; module-provided definitions are registered with `platform.connectorCatalog.register(def)`.
 4. Add it to the adapter map in `tests/unit/connectors.contract.test.ts` and write integration tests with a stubbed `fetchImpl` (see `tests/integration/connectors.test.ts`).

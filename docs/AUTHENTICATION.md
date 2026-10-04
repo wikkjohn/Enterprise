@@ -113,13 +113,13 @@ Configuration (`POST /api/v1/organization/identity-providers`, `org.security.man
   "domains": ["example.com"], "jitProvisioning": true, "defaultRoleKey": "standard_user" }
 ```
 
-`configureOidc` fetches `<issuer>/.well-known/openid-configuration` through the SSRF guard, requires `authorization_endpoint`, `token_endpoint`, `jwks_uri` and an exactly matching `issuer`, stores the client secret in the secret store (`client_secret_ref`), and saves the IdP as `draft`. Activate with `PATCH /api/v1/organization/identity-providers/:id { "status": "active" }`. Changes are audited as `sso.identity_provider_changed`.
+`configureOidc` fetches `<issuer>/.well-known/openid-configuration` through the SSRF guard (the advertised `authorization_endpoint`, `token_endpoint` and `jwks_uri` are each checked by the guard too), requires `authorization_endpoint`, `token_endpoint`, `jwks_uri` and an exactly matching `issuer`, stores the client secret in the secret store (`client_secret_ref`), and saves the IdP as `draft`. Activate with `PATCH /api/v1/organization/identity-providers/:id { "status": "active" }`. Changes are audited as `sso.identity_provider_changed`.
 
 Flow:
 
 1. **Discovery** — `POST /auth/sso/discover { email }` finds an active IdP whose `domains` contains the email's domain.
 2. **Start** — `GET /auth/sso/start?idp=<id>`: builds `state = base64url(JSON{ idp, org, nonce, verifier, exp: +10 min }).HMAC-SHA256(APP_SECRET)`, sets it as the `eaop_sso_state` cookie, and redirects to the authorization endpoint with `response_type=code`, `client_id`, `redirect_uri = ${APP_URL}/api/v1/auth/sso/oidc/callback`, `scope`, `state = sha256(cookie value)`, `nonce`, `code_challenge` (S256 of a 48-byte verifier).
-3. **Callback** — verifies the cookie's HMAC and expiry and that `sha256(cookie) == state`; exchanges the code (with `code_verifier` and, if configured, `client_secret`) at the token endpoint (SSRF-guarded); verifies the `id_token` with `jose` against the IdP JWKS (`issuer`, `audience = clientId`); checks `nonce`; requires an `email` claim and `email_verified !== false`; enforces the IdP `domains` list.
+3. **Callback** — verifies the cookie's HMAC and expiry and that `sha256(cookie) == state`; exchanges the code (with `code_verifier` and, if configured, `client_secret`) at the token endpoint (SSRF-guarded); verifies the `id_token` with `jose` against the IdP JWKS (`jwks_uri` re-checked by the SSRF guard) (`issuer`, `audience = clientId`); checks `nonce`; requires an `email` claim and `email_verified !== false`; enforces the IdP `domains` list.
 4. **Account** — existing active member → session. Otherwise, if `jitProvisioning` is on and the user is not a member (or only `invited`): create the user if needed (no password), upsert an active membership with `source = sso_jit`, grant `defaultRoleKey`, publish `user.joined`. Otherwise `FORBIDDEN` (audited `auth.login_failed`, reason `sso_not_member`).
 5. A session with `auth_method = oidc` is created in the IdP's organization; the response is a 302 to `/` with session cookies.
 
@@ -147,12 +147,11 @@ There is no SCIM endpoint. The schema reserves `memberships.source = 'scim'`. Th
 | Control | Enforcement point |
 |---|---|
 | `ipAllowlist` | At login (user's default org) and on every authenticated request (active org) via `ipAllowed(meta.ip, ...)`. IPv4 CIDR and exact IPv6. Client IP is the last `x-forwarded-for` entry — deploy behind a proxy that appends it |
-| `ssoEnforced` | At password login for the user's default org; platform admins are exempt |
+| `ssoEnforced` | At password login (user's default org) **and** on every request in `auth.resolve` for the **active** org: a session with `auth_method = password` gets `FORBIDDEN` "This organization requires single sign-on…" (platform admins exempt) |
 | `mfaRequired` | Per request via `mfaEnrollmentRequired`; blocks MFA disable |
 | `allowedEmailDomains` | At invitation |
 | `sessionIdleMinutes` / `sessionMaxHours` | Session validation / creation |
 
-Known limitations: `ssoEnforced` and the login-time IP check consider only the user's default organization; switching into another organization does not re-check `ssoEnforced` (the per-request IP allowlist does apply).
 
 ## Bootstrap
 

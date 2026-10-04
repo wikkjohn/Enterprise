@@ -258,13 +258,13 @@ export default async function WorkflowDashboard() {
 }
 ```
 
-The `(app)` route group and shell are being built concurrently; follow whatever layout it provides. The generic catch-all `apps/web/src/app/(app)/m/[module]/[[...rest]]/page.tsx` renders the "not installed / not enabled" states for every module; a static `m/workflow-intelligence/` folder takes precedence over that dynamic segment in the App Router.
+Pages under `(app)` are wrapped by the shell (`apps/web/src/app/(app)/layout.tsx`, `apps/web/src/components/app-shell.tsx`). The generic catch-all `apps/web/src/app/(app)/m/[module]/[[...rest]]/page.tsx` renders `NotInstalledState` for placeholders, a "Not enabled for your organization" state with an **Enable module** action (shown to `module.manage` holders) for installed-but-disabled modules, and "Module UI not provided" for enabled modules without pages. A static `m/workflow-intelligence/` folder takes precedence over that dynamic segment. Server pages must not pass functions (e.g. a `DataTable` cell renderer) to client components — put tables in a client component under `apps/web/src/components`.
 
 ### 6. Tests
 
 - **Unit**: pure logic (scoring, schemas) under `tests/unit/`.
 - **Integration**: `tests/integration/workflow-intelligence.test.ts` using `createTestPlatform({ modules: [...] })` with the installed manifest, `createOrg`, `addMember`, `expectCode`.
-- **Module migrations in tests**: `tests/helpers/global-setup.ts` currently applies **core migrations only**. Before a module test can see its tables, extend it to also pass `...(await moduleMigrationSources())` (from `packages/db/scripts/module-migrations.ts`) to `runMigrations`.
+- **Module migrations in tests**: `tests/helpers/global-setup.ts` applies core migrations **and** `moduleMigrationSources()`, so `modules/<name>/migrations/*.sql` are present in the test database automatically.
 - **Tenant isolation (mandatory)** — copy the pattern of `tests/integration/tenant-isolation.test.ts`:
 
 ```ts
