@@ -153,7 +153,7 @@ export const ENTERPRISE_DEFINITIONS: ConnectorDefinition[] = [
     configSchema: z.object({ tenantId: z.string().min(1).max(100) }),
     configFields: [{ key: "tenantId", label: "Entra tenant ID", type: "text", required: true }],
     credentialFields: { oauth2: oauthClientCreds, service_account: oauthClientCreds },
-    oauth: { authorizationUrl: "https://login.microsoftonline.com/{tenantId}/oauth2/v2.0/authorize", tokenUrl: "https://login.microsoftonline.com/{tenantId}/oauth2/v2.0/token", defaultScopes: ["offline_access", "https://graph.microsoft.com/.default"], usePkce: true },
+    oauth: { authorizationUrl: "https://login.microsoftonline.com/{tenantId}/oauth2/v2.0/authorize", tokenUrl: "https://login.microsoftonline.com/{tenantId}/oauth2/v2.0/token", defaultScopes: ["offline_access", "https://graph.microsoft.com/.default"] },
     docsUrl: "https://learn.microsoft.com/graph/",
   }),
   contractOnly({
@@ -170,7 +170,7 @@ export const ENTERPRISE_DEFINITIONS: ConnectorDefinition[] = [
     configSchema: z.object({ instanceUrl: url }),
     configFields: [{ key: "instanceUrl", label: "Instance URL", type: "url", required: true, placeholder: "https://yourorg.my.salesforce.com" }],
     credentialFields: { oauth2: oauthClientCreds },
-    oauth: { authorizationUrl: "https://login.salesforce.com/services/oauth2/authorize", tokenUrl: "https://login.salesforce.com/services/oauth2/token", defaultScopes: ["api", "refresh_token"], usePkce: true },
+    oauth: { authorizationUrl: "https://login.salesforce.com/services/oauth2/authorize", tokenUrl: "https://login.salesforce.com/services/oauth2/token", defaultScopes: ["api", "refresh_token"] },
     urlConfigKeys: ["instanceUrl"],
   }),
   contractOnly({
@@ -258,7 +258,7 @@ export const ENTERPRISE_DEFINITIONS: ConnectorDefinition[] = [
     authTypes: ["oauth2", "service_account"],
     capabilities: [cap("drive.read", "Read Drive files and permissions.", ["read", "list", "search"], "medium"), cap("gmail.send", "Send Gmail.", ["write"], "high"), cap("directory.read", "Read users and groups.", ["read", "list"], "medium")],
     credentialFields: { oauth2: oauthClientCreds, service_account: serviceAccountCreds },
-    oauth: { authorizationUrl: "https://accounts.google.com/o/oauth2/v2/auth", tokenUrl: "https://oauth2.googleapis.com/token", defaultScopes: ["https://www.googleapis.com/auth/drive.readonly"], usePkce: true },
+    oauth: { authorizationUrl: "https://accounts.google.com/o/oauth2/v2/auth", tokenUrl: "https://oauth2.googleapis.com/token", defaultScopes: ["https://www.googleapis.com/auth/drive.readonly"] },
   }),
   contractOnly({
     type: "box",

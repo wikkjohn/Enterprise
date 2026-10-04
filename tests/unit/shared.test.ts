@@ -64,3 +64,14 @@ describe("module placeholders", () => {
     expect(() => reg.add({ ...MODULE_MANIFESTS[0]!, permissions: [{ key: "org.manage", description: "" }] })).toThrow(/core namespace/);
   });
 });
+
+describe("error identity across module copies", () => {
+  it("isAppError recognises errors created by another copy of the module (bundler duplication)", async () => {
+    const { isAppError } = await import("../../packages/shared-types/src");
+    const foreign = Object.assign(new Error("denied"), { [Symbol.for("eaop.AppError")]: true, code: "FORBIDDEN", status: 403 });
+    expect(isAppError(foreign, "FORBIDDEN")).toBe(true);
+    expect(isAppError(new Error("plain"))).toBe(false);
+    const { errorResponse } = await import("../../packages/api/src/http");
+    expect(errorResponse(foreign, "req-1").response.status).toBe(403);
+  });
+});

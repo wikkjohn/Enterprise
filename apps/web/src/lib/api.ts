@@ -2,7 +2,7 @@ import { createRouteFactory, serializeCookie } from "@eaop/api";
 import { CSRF_COOKIE, randomToken, SESSION_COOKIE } from "@eaop/security";
 import { getPlatform } from "./platform";
 
-/** The single route factory every /api/v1 handler uses. See docs/API.md conventions in DEVELOPER-GUIDE.md. */
+/** The single route factory every /api/v1 handler uses. API conventions: docs/DEVELOPER-GUIDE.md. */
 export const route = createRouteFactory(getPlatform);
 
 const isProd = () => process.env.APP_ENV === "production";

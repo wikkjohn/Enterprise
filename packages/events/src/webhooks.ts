@@ -43,6 +43,8 @@ export function createWebhookService(deps: {
   secrets: SecretStore;
   logger: Logger;
   urlGuard: UrlGuardOptions;
+  /** Injected to avoid a package cycle (audit depends on nothing in events). */
+  audit?: (ctx: TenantContext, action: string, resourceId: string, after?: unknown) => Promise<void>;
   fetchImpl?: typeof fetch;
 }): WebhookService {
   const { db, registry, jobs, secrets, logger } = deps;
@@ -133,6 +135,7 @@ export function createWebhookService(deps: {
           .values({ organizationId: ctx.organizationId, url: input.url, eventTypes: input.eventTypes, description: input.description ?? null, signingSecretRef: ref, createdBy: ctx.actor.type === "user" ? ctx.actor.id : null })
           .returning(),
       );
+      await deps.audit?.(ctx, "webhook.created", row!.id, { url: input.url, eventTypes: input.eventTypes });
       return { webhook: view(row!), signingSecret };
     },
     async list(ctx) {
@@ -143,6 +146,7 @@ export function createWebhookService(deps: {
       const [row] = await db.withTenant(scopeOf(ctx), (tx) => tx.delete(webhooks).where(eq(webhooks.id, id)).returning());
       if (!row) throw notFound("Webhook", id);
       await secrets.destroy(row.signingSecretRef, ctx.organizationId).catch(() => undefined);
+      await deps.audit?.(ctx, "webhook.deleted", id, { url: row.url });
     },
   };
 }

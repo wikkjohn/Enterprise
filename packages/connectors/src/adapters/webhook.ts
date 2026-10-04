@@ -1,5 +1,5 @@
 import { hmacSha256 } from "@eaop/security";
-import { ConnectorError, classifyStatus, type ConnectorAdapter } from "../types";
+import { ConnectorError, classifyStatus, isConnectorError, type ConnectorAdapter } from "../types";
 
 export const outboundWebhookAdapter: ConnectorAdapter = {
   type: "outbound_webhook",
@@ -7,7 +7,7 @@ export const outboundWebhookAdapter: ConnectorAdapter = {
     const cfg = ctx.config as { url: string };
     // A HEAD/OPTIONS probe is not universally supported; we only validate the URL (SSRF guard) and DNS.
     await ctx.fetch(cfg.url, { method: "OPTIONS" }).catch((e: Error) => {
-      if (e instanceof ConnectorError && e.errorClass === "configuration") throw e;
+      if (isConnectorError(e) && e.errorClass === "configuration") throw e;
     });
     return { ok: true, message: "Endpoint URL is valid and reachable for outbound delivery." };
   },

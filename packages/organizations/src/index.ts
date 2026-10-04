@@ -337,6 +337,17 @@ export function createOrganizationService(deps: {
         const [m] = await tx.select().from(memberships).where(and(eq(memberships.id, membershipId), eq(memberships.organizationId, ctx.organizationId))).limit(1);
         if (!m) throw notFound("Member", membershipId);
         if (ctx.actor.type === "user" && m.userId === ctx.actor.id) throw forbidden("You cannot change your own membership status.");
+        if (status !== "active") {
+          const admins = await tx
+            .select({ membershipId: memberRoles.membershipId })
+            .from(memberRoles)
+            .innerJoin(roles, eq(roles.id, memberRoles.roleId))
+            .innerJoin(memberships, eq(memberships.id, memberRoles.membershipId))
+            .where(and(eq(roles.key, "org_admin"), eq(memberRoles.organizationId, ctx.organizationId), eq(memberships.status, "active"), isNull(memberRoles.scopeType)));
+          if (admins.some((a) => a.membershipId === membershipId) && new Set(admins.map((a) => a.membershipId)).size <= 1) {
+            throw conflict("An organization must keep at least one active administrator.");
+          }
+        }
         await tx.update(memberships).set({ status, updatedAt: new Date() }).where(eq(memberships.id, membershipId));
         if (status === "removed") await tx.delete(memberRoles).where(eq(memberRoles.membershipId, membershipId));
         const action = status === "active" ? AuditActions.MEMBER_REACTIVATED : status === "suspended" ? AuditActions.MEMBER_SUSPENDED : AuditActions.MEMBER_REMOVED;

@@ -1,6 +1,6 @@
 import { and, backgroundJobsMetadata, count, desc, eq, inArray, sql, type Database } from "@eaop/db";
 import { redactString, type Logger, type Metrics } from "@eaop/observability";
-import { AppError, type Uuid } from "@eaop/shared-types";
+import { AppError, isAppError, type Uuid } from "@eaop/shared-types";
 
 /**
  * Reliable background job queue on PostgreSQL (FOR UPDATE SKIP LOCKED).
@@ -141,7 +141,7 @@ export function createJobQueue(deps: { db: Database; logger: Logger; metrics: Me
           metrics.increment("eaop_jobs_total", { type: row.type, outcome: "succeeded" });
           metrics.observe("eaop_job_duration_ms", ms, { type: row.type });
         } catch (err) {
-          const dead = row.attempts >= row.max_attempts || (err instanceof AppError && !err.retryable && err.code !== "UPSTREAM_TIMEOUT" && err.code !== "UPSTREAM_ERROR");
+          const dead = row.attempts >= row.max_attempts || (isAppError(err) && !err.retryable && err.code !== "UPSTREAM_TIMEOUT" && err.code !== "UPSTREAM_ERROR");
           const message = redactString(err instanceof Error ? err.message : String(err)).slice(0, 2000);
           await db.withSystem("jobs.fail", (tx) =>
             tx

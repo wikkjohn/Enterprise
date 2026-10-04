@@ -18,7 +18,6 @@ export const envSchema = z.object({
   ANTHROPIC_API_KEY: z.string().optional(),
   OPENAI_API_KEY: z.string().optional(),
   EMAIL_WEBHOOK_URL: z.string().url().optional().or(z.literal("").transform(() => undefined)),
-  REDIS_URL: z.string().optional(),
   PLATFORM_NAME: z.string().default("Enterprise AI Operating Platform"),
 });
 export type PlatformEnv = z.infer<typeof envSchema>;

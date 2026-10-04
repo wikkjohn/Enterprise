@@ -1,4 +1,4 @@
-import { type ConnectorAdapter, type ConnectorDefinition, ConnectorError } from "./types";
+import { type ConnectorAdapter, type ConnectorDefinition, type ConnectorError, isConnectorError } from "./types";
 
 /**
  * Reusable connector contract checks. Every adapter (core or module-provided)
@@ -28,5 +28,5 @@ export function definitionViolations(def: ConnectorDefinition, adapter?: Connect
 }
 
 export function isNormalisedError(err: unknown): err is ConnectorError {
-  return err instanceof ConnectorError && ["auth", "rate_limited", "transient", "permanent", "configuration", "not_implemented"].includes(err.errorClass);
+  return isConnectorError(err) && ["auth", "rate_limited", "transient", "permanent", "configuration", "not_implemented"].includes(err.errorClass);
 }

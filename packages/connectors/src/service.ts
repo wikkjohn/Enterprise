@@ -14,7 +14,7 @@ import { AppError, conflict, notFound, SYSTEM_ACTOR, type TenantContext, type Uu
 import { USAGE_METRICS, type UsageService } from "@eaop/usage";
 import { type ConnectorCatalog } from "./catalog";
 import { createGuardedFetch } from "./http";
-import { ConnectorError, type AdapterContext, type CapabilityOperation, type ConnectorAdapter, type ConnectorAuthType, type ConnectorDefinition } from "./types";
+import { ConnectorError, isConnectorError, type AdapterContext, type CapabilityOperation, type ConnectorAdapter, type ConnectorAuthType, type ConnectorDefinition } from "./types";
 
 export const createConnectorSchema = z.object({
   type: z.string().min(1).max(64),
@@ -436,7 +436,7 @@ export function createConnectorService(deps: {
           return result;
         } catch (err) {
           lastErr = err;
-          const ce = err instanceof ConnectorError ? err : new ConnectorError("transient", err instanceof Error ? err.message : String(err));
+          const ce = isConnectorError(err) ? err : new ConnectorError("transient", err instanceof Error ? err.message : String(err));
           if (ce.errorClass === "auth" && !refreshed && adapter.refreshCredentials && cred && values) {
             refreshed = true;
             try {
@@ -454,7 +454,7 @@ export function createConnectorService(deps: {
           await new Promise((r) => setTimeout(r, delay));
         }
       }
-      const ce = lastErr instanceof ConnectorError ? lastErr : new ConnectorError("transient", lastErr instanceof Error ? lastErr.message : "Connector call failed.");
+      const ce = isConnectorError(lastErr) ? lastErr : new ConnectorError("transient", lastErr instanceof Error ? lastErr.message : "Connector call failed.");
       metrics.increment("eaop_connector_actions_total", { type: row.type, outcome: ce.errorClass });
       logger.warn("connector.execute_failed", { connectorId: id, errorClass: ce.errorClass, message: ce.message });
       await db.withTenant(scopeOf(ctx), (tx) => tx.update(connectors).set({ lastError: redactString(ce.message).slice(0, 1000), updatedAt: new Date() }).where(eq(connectors.id, id)));

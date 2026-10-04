@@ -35,7 +35,7 @@ export interface Database {
   /**
    * Platform-level access that bypasses tenant RLS. Reserved for auth bootstrap,
    * organization provisioning, workers and migrations. Every call site must
-   * pass a reason; calls are logged at debug level.
+   * pass a reason (greppable; it documents why RLS is bypassed).
    */
   withSystem<T>(reason: string, fn: (tx: Tx) => Promise<T>): Promise<T>;
   /**

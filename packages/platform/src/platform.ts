@@ -27,6 +27,7 @@ import { createSearchService, textScore, type SearchService } from "@eaop/search
 import { createSecretStore, type SecretStore } from "@eaop/secrets";
 import { MemoryRateLimiter, type RateLimiter, type UrlGuardOptions } from "@eaop/security";
 import { createUsageService, type UsageService } from "@eaop/usage";
+import { isModuleId } from "@eaop/shared-types";
 import { type PlatformEnv } from "./config";
 import { createErrorReporter, type ErrorReporter } from "./errors";
 import { createHealthService, type HealthService } from "./health";
@@ -112,7 +113,7 @@ export function createPlatform(env: PlatformEnv, o: PlatformOverrides = {}): Pla
   const roleGrants: Record<string, string[]> = {};
 
   const bus = createEventBus({ db, registry: eventRegistry, jobs, logger, metrics });
-  const webhooks = createWebhookService({ db, bus, registry: eventRegistry, jobs, secrets, logger, urlGuard, fetchImpl: o.fetchImpl });
+  const webhooks = createWebhookService({ db, bus, registry: eventRegistry, jobs, secrets, logger, urlGuard, fetchImpl: o.fetchImpl, audit: (ctx, action, resourceId, after) => audit.record(ctx, { action, resourceType: "webhook", resourceId, after }) });
   const authorizer = createAuthorizer({ db, registry: permissionRegistry, audit });
   const roles = createRoleService({ db, registry: permissionRegistry, authorizer, audit, bus, extraRoleGrants: () => roleGrants });
   const policyService = createPolicyService({ db, engine: policyEngine, authorizer, audit, bus });
@@ -151,6 +152,7 @@ export function createPlatform(env: PlatformEnv, o: PlatformOverrides = {}): Pla
     env: env as unknown as Record<string, string | undefined>,
     environment: env.APP_ENV,
     retentionFor: async (orgId) => (await organizations.settingsInternal(orgId)).dataRetention.aiPromptRetention,
+    isModuleEnabled: (orgId, moduleId) => (isModuleId(moduleId) ? modules.isEnabled(orgId, moduleId) : Promise.resolve(false)),
   });
 
   const health = createHealthService({ db, jobs, ai, modules, authorizer });

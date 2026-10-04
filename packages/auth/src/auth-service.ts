@@ -185,6 +185,9 @@ export function createAuthService(deps: {
       if (!orgId) return { user: v.user, session: v.session, tenant: null, mfaEnrollmentRequired: false };
       const sec = (await orgs.settingsInternal(orgId)).security;
       if (!ipAllowed(meta.ip, sec.ipAllowlist)) throw new AppError("FORBIDDEN", "Access is not allowed from this network.");
+      if (sec.ssoEnforced && v.session.authMethod === "password" && !v.user.isPlatformAdmin) {
+        throw new AppError("FORBIDDEN", "This organization requires single sign-on. Sign in through your identity provider.");
+      }
       return {
         user: v.user,
         session: v.session,

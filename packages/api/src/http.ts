@@ -1,5 +1,5 @@
 import { ZodError } from "zod";
-import { AppError } from "@eaop/shared-types";
+import { isAppError } from "@eaop/shared-types";
 
 /** Success envelope: { data, meta? }. Error envelope: { error: { code, message, details?, requestId } }. */
 export function json(data: unknown, init: { status?: number; headers?: Record<string, string>; meta?: Record<string, unknown> } = {}) {
@@ -9,19 +9,26 @@ export function json(data: unknown, init: { status?: number; headers?: Record<st
   });
 }
 
+/** ZodError check that survives duplicate module copies (see isAppError). */
+function asZodError(err: unknown): ZodError | null {
+  if (err instanceof ZodError) return err;
+  const e = err as { name?: unknown; issues?: unknown } | null;
+  return e && typeof e === "object" && e.name === "ZodError" && Array.isArray(e.issues) ? (err as ZodError) : null;
+}
+
 export function errorResponse(err: unknown, requestId: string): { response: Response; unexpected: boolean } {
   let status = 500;
   let body: { code: string; message: string; details?: unknown; requestId: string };
   let unexpected = false;
   const headers: Record<string, string> = { "content-type": "application/json; charset=utf-8", "cache-control": "no-store", "x-request-id": requestId };
-  if (err instanceof AppError) {
+  if (isAppError(err)) {
     status = err.status;
     body = { code: err.code, message: err.message, ...(err.details ? { details: err.details } : {}), requestId };
     const retry = (err.details as { retryAfterSeconds?: number } | undefined)?.retryAfterSeconds;
     if (status === 429 && retry) headers["retry-after"] = String(retry);
-  } else if (err instanceof ZodError) {
+  } else if (asZodError(err)) {
     status = 422;
-    body = { code: "VALIDATION_FAILED", message: "Request validation failed.", details: { issues: err.issues.slice(0, 20).map((i) => ({ path: i.path.join("."), message: i.message })) }, requestId };
+    body = { code: "VALIDATION_FAILED", message: "Request validation failed.", details: { issues: asZodError(err)!.issues.slice(0, 20).map((i) => ({ path: i.path.join("."), message: i.message })) }, requestId };
   } else {
     unexpected = true;
     // Never leak internals: no stack, no raw message.

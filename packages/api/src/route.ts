@@ -119,7 +119,9 @@ export function createRouteFactory(getPlatform: () => Platform | Promise<Platfor
           }
 
           // ── Rate limiting (per actor, or per IP for public routes) ────────
-          const rlKey = ctx ? `api:${ctx.organizationId}:${ctx.actor.id}` : `ip:${meta.ip ?? "unknown"}:${url.pathname}`;
+          // Routes with a custom limit get their own bucket; others share the per-actor API budget.
+          const base = ctx ? `api:${ctx.organizationId}:${ctx.actor.id}` : `ip:${meta.ip ?? "unknown"}`;
+          const rlKey = opts.rateLimit || !ctx ? `${base}:${req.method}:${url.pathname}` : base;
           const rl = await platform.rateLimiter.consume(rlKey, opts.rateLimit ?? RATE_LIMITS.api);
           if (!rl.allowed) throw new AppError("RATE_LIMITED", undefined, { retryAfterSeconds: rl.retryAfterSeconds });
 

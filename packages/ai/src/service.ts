@@ -7,7 +7,7 @@ import { type PolicyService } from "@eaop/policies";
 import { type Authorizer } from "@eaop/rbac";
 import { type SecretStore } from "@eaop/secrets";
 import { RATE_LIMITS, sha256, type RateLimiter } from "@eaop/security";
-import { AppError, decodeCursor, encodeCursor, notFound, type OwnerId, type Page, type TenantContext } from "@eaop/shared-types";
+import { AppError, decodeCursor, isAppError, encodeCursor, notFound, type OwnerId, type Page, type TenantContext } from "@eaop/shared-types";
 import { USAGE_METRICS, type UsageService } from "@eaop/usage";
 import { PLATFORM_AI_CATALOG, UNIMPLEMENTED_PROVIDER_KINDS } from "./catalog";
 import { estimateCostUsd, rankModels, type RoutableModel, type RoutingPolicy } from "./router";
@@ -137,6 +137,8 @@ export function createAIService(deps: {
   env: Record<string, string | undefined>;
   environment: string;
   retentionFor: (organizationId: string) => Promise<"none" | "metadata" | "full">;
+  /** Attribution guard: only "core" or a module enabled for the tenant may be named as the caller. */
+  isModuleEnabled: (organizationId: string, moduleId: string) => Promise<boolean>;
   timeoutMs?: number;
 }): AIService {
   const { db, secrets, authorizer, audit, bus, usage, logger, metrics } = deps;
@@ -199,6 +201,8 @@ export function createAIService(deps: {
 
   type RunInsert = typeof aiRuns.$inferInsert;
   async function persistRun(ctx: TenantContext, values: Omit<RunInsert, "organizationId" | "actorType" | "actorId" | "correlationId">) {
+    // retention "none": keep no derivative of the content either (no hash, no sizes).
+    if (values.promptRetention === "none") values = { ...values, promptHash: null, promptChars: null, responseChars: null, request: null, response: null };
     const [row] = await db.withTenant(scopeOf(ctx), (tx) =>
       tx.insert(aiRuns).values({ ...values, organizationId: ctx.organizationId, actorType: ctx.actor.type, actorId: ctx.actor.id, correlationId: ctx.correlationId }).returning({ id: aiRuns.id }),
     );
@@ -226,6 +230,9 @@ export function createAIService(deps: {
     async execute(ctx, raw) {
       if (ctx.actor.type !== "system") await authorizer.require(ctx, "ai.use");
       const input = aiExecuteSchema.parse(raw);
+      if (input.moduleId !== "core" && !(await deps.isModuleEnabled(ctx.organizationId, input.moduleId))) {
+        throw new AppError("MODULE_NOT_ENABLED", undefined, { moduleId: input.moduleId });
+      }
       const rl = await deps.rateLimiter.consume(`ai:${ctx.organizationId}:${ctx.actor.id}`, RATE_LIMITS.ai);
       if (!rl.allowed) throw new AppError("RATE_LIMITED", "AI request rate limit reached.", { retryAfterSeconds: rl.retryAfterSeconds });
 
@@ -337,15 +344,15 @@ export function createAIService(deps: {
         await bus.publish(ctx, "ai.run.completed", { runId, moduleId: input.moduleId, useCase: input.useCase, provider: chosen.providerKey, model: res.servedModel, inputTokens: res.usage.inputTokens, outputTokens: res.usage.outputTokens, costUsd: cost, latencyMs });
         return { runId, text: res.text, provider: chosen.providerKey, model: chosen.modelKey, servedModel: res.servedModel, finishReason: res.finishReason, usage: res.usage, estimatedCostUsd: cost, latencyMs, policy: { decision: "ALLOW", reasons } };
       } catch (err) {
-        if (err instanceof AppError && (err.code === "POLICY_DENIED" || err.code === "APPROVAL_REQUIRED")) throw err;
+        if (isAppError(err) && (err.code === "POLICY_DENIED" || err.code === "APPROVAL_REQUIRED")) throw err;
         const latencyMs = Math.round(performance.now() - started);
-        const code = err instanceof AppError ? err.code : "INTERNAL";
+        const code = isAppError(err) ? err.code : "INTERNAL";
         const message = redactString(err instanceof Error ? err.message : String(err)).slice(0, 500);
         const runId = await persistRun(ctx, { ...base, status: "failed", latencyMs, policyDecision: "ALLOW", policyReasons: reasons, promptHash, promptChars: promptText.length, errorCode: code, errorMessage: message, request: retention === "full" ? request : null });
         metrics.increment("eaop_ai_runs_total", { provider: chosen.providerKey, model: chosen.modelKey, outcome: "error" });
         logger.warn("ai.run_failed", { runId, provider: chosen.providerKey, model: chosen.modelKey, code });
         await bus.publish(ctx, "ai.run.failed", { runId, moduleId: input.moduleId, useCase: input.useCase, status: "failed", errorCode: code });
-        if (err instanceof AppError) throw new AppError(err.code, err.message, { ...(err.details ?? {}), runId }, { retryable: err.retryable });
+        if (isAppError(err)) throw new AppError(err.code, err.message, { ...(err.details ?? {}), runId }, { retryable: err.retryable });
         throw new AppError("UPSTREAM_ERROR", "The AI provider call failed.", { runId });
       }
     },

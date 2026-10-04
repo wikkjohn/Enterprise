@@ -120,6 +120,7 @@ export function createSsoService(deps: {
     const d = (await res.json()) as OidcDiscovery;
     if (!d.authorization_endpoint || !d.token_endpoint || !d.jwks_uri) throw new AppError("UPSTREAM_ERROR", "OIDC discovery document is incomplete.");
     if (d.issuer.replace(/\/$/, "") !== issuer.replace(/\/$/, "")) throw new AppError("VALIDATION_FAILED", "Issuer mismatch in discovery document.");
+    for (const u of [d.authorization_endpoint, d.token_endpoint, d.jwks_uri]) await assertSafeOutboundUrl(u, deps.urlGuard);
     return d;
   }
 
@@ -232,6 +233,7 @@ export function createSsoService(deps: {
       if (!res.ok) throw new AppError("UNAUTHENTICATED", "The identity provider rejected the sign-in.");
       const tokens = (await res.json()) as { id_token?: string };
       if (!tokens.id_token) throw new AppError("UNAUTHENTICATED", "No id_token returned by the identity provider.");
+      await assertSafeOutboundUrl(cfg.jwksUri, deps.urlGuard);
       const { payload } = await jwtVerify(tokens.id_token, jwks(cfg.jwksUri), { issuer: cfg.issuer, audience: cfg.clientId }).catch(() => {
         throw new AppError("UNAUTHENTICATED", "The identity token could not be verified.");
       });

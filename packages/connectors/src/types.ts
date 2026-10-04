@@ -1,5 +1,5 @@
 import { type z } from "zod";
-import { AppError } from "@eaop/shared-types";
+import { AppError, isAppError } from "@eaop/shared-types";
 import { type RiskLevel } from "@eaop/shared-types";
 
 export type ConnectorAuthType = "oauth2" | "api_key" | "service_account" | "basic" | "none";
@@ -56,7 +56,8 @@ export interface ConnectorDefinition {
   configFields: ConfigField[];
   credentialFields: Partial<Record<ConnectorAuthType, CredentialField[]>>;
   rateLimit: { requestsPerMinute: number };
-  oauth?: { authorizationUrl: string; tokenUrl: string; defaultScopes: string[]; usePkce?: boolean };
+  /** OAuth2 authorization-code endpoints (templated with config values, e.g. {tenantId}). */
+  oauth?: { authorizationUrl: string; tokenUrl: string; defaultScopes: string[] };
   /** Config keys holding URLs that must pass the SSRF guard. */
   urlConfigKeys?: string[];
   docsUrl?: string;
@@ -94,6 +95,11 @@ export class ConnectorError extends AppError {
       { retryable: errorClass === "transient" || errorClass === "rate_limited" },
     );
   }
+}
+
+/** Cross-module-copy safe check (see isAppError). */
+export function isConnectorError(err: unknown): err is ConnectorError {
+  return isAppError(err) && typeof (err as ConnectorError).errorClass === "string";
 }
 
 export function classifyStatus(status: number, retryAfter?: string | null): ConnectorError | null {

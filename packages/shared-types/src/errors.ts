@@ -30,7 +30,19 @@ export interface ErrorDetails {
   [key: string]: unknown;
 }
 
+/**
+ * Brand used instead of `instanceof`: bundlers (Next.js + pnpm symlinks) can
+ * load this module twice, and `instanceof` fails across copies — which would
+ * turn every 403/404 into a 500. Always use isAppError().
+ */
+const APP_ERROR_BRAND = Symbol.for("eaop.AppError");
+
+export function isAppError(err: unknown, code?: ErrorCode): err is AppError {
+  return typeof err === "object" && err !== null && (err as Record<symbol, unknown>)[APP_ERROR_BRAND] === true && (code === undefined || (err as AppError).code === code);
+}
+
 export class AppError extends Error {
+  readonly [APP_ERROR_BRAND] = true;
   readonly code: ErrorCode;
   readonly status: number;
   readonly details?: ErrorDetails;
@@ -47,7 +59,7 @@ export class AppError extends Error {
   }
 
   static is(err: unknown, code?: ErrorCode): err is AppError {
-    return err instanceof AppError && (code === undefined || err.code === code);
+    return isAppError(err, code);
   }
 }
 

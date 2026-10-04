@@ -2,7 +2,7 @@
  * Redaction for logs and error payloads. Keys matching SENSITIVE_KEY are
  * replaced; string values that look like credentials are masked.
  */
-const SENSITIVE_KEY = /pass(word)?|secret|token|api[-_]?key|authorization|cookie|credential|private[-_]?key|session|otp|mfa[-_]?code/i;
+const SENSITIVE_KEY = /pass(word)?|secret|token|api[-_]?key|authorization|cookie|credential|private[-_]?key|session[-_]?token|otp|mfa[-_]?code/i;
 const SECRET_VALUE_PATTERNS: RegExp[] = [
   /\b(sk|pk|rk)-[A-Za-z0-9_-]{16,}\b/g, // provider-style API keys
   /\beaop_[A-Za-z0-9]{6,}_[A-Za-z0-9_-]{16,}\b/g, // platform API keys

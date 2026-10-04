@@ -4,6 +4,7 @@
  * Refuses to run when APP_ENV=production (use scripts/create-platform-admin.ts).
  */
 import { randomUUID } from "node:crypto";
+import { eq, users } from "@eaop/db";
 import { createPlatform, loadEnv } from "@eaop/platform";
 
 const env = loadEnv();
@@ -21,8 +22,8 @@ try {
   console.log(`✔ platform administrator ${email}`);
 } catch (e) {
   console.log(`• ${(e as Error).message}`);
-  const r = await p.db.pool.query<{ id: string }>("select id from users where is_platform_admin limit 1").catch(() => ({ rows: [] as { id: string }[] }));
-  adminId = r.rows[0]?.id ?? "";
+  const [row] = await p.db.withSystem("seed.find_admin", (tx) => tx.select({ id: users.id }).from(users).where(eq(users.isPlatformAdmin, true)).limit(1));
+  adminId = row?.id ?? "";
 }
 if (adminId) {
   try {

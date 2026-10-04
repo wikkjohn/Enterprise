@@ -74,7 +74,16 @@ export function createHealthService(deps: { db: Database; jobs: JobQueue; ai: AI
       const modules = (await deps.modules.health()).map((m) => ({ moduleId: m.moduleId, state: m.status.state, message: m.status.message }));
       const ai = await deps.ai.providerStatus();
       const queueState: HealthState = stats ? ((stats.byStatus.dead ?? 0) > 0 || (stats.oldestQueuedSeconds ?? 0) > 600 ? "degraded" : "healthy") : "unknown";
-      const services = [database, { name: "job_queue", state: queueState }, { name: "event_bus", state: "healthy" as HealthState }];
+      const outbox = await db.withSystem("health.outbox", (tx) =>
+        tx.execute(sql`select count(*) filter (where status = 'dead')::int as dead, count(*) filter (where status in ('pending','failed') and occurred_at < now() - interval '10 minutes')::int as stuck from event_outbox`),
+      );
+      const ob = outbox.rows[0] as { dead: number; stuck: number };
+      const busState: HealthState = ob.dead > 0 || ob.stuck > 0 ? "degraded" : "healthy";
+      const services = [
+        database,
+        { name: "job_queue", state: queueState },
+        { name: "event_bus", state: busState, message: busState === "healthy" ? undefined : `${ob.dead} dead, ${ob.stuck} undelivered >10 min` },
+      ];
       const overall: HealthState = services.some((s) => s.state === "unhealthy") ? "unhealthy" : services.some((s) => s.state === "degraded") || conns.failing.length ? "degraded" : "healthy";
       return {
         generatedAt: new Date().toISOString(),
