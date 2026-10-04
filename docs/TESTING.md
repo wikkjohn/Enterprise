@@ -30,7 +30,7 @@ Connection strings (`tests/helpers/env.ts`):
 
 One-time setup (see the README for the full SQL): roles `eaop` (owner) and `eaop_app` (`NOSUPERUSER NOBYPASSRLS`) and database `eaop_test` owned by `eaop`. `global-setup.ts` then, on every run, **drops and recreates schema `public`** in the test database, applies the core migrations **and** every `modules/*/migrations` directory (`moduleMigrationSources()`), and runs `GRANT eaop_runtime TO eaop_app` (errors ignored). Never point the test URLs at a database you care about.
 
-CI (`.github/workflows/platform-ci.yml`) uses a `postgres:16` service with `POSTGRES_DB=eaop_test`, creates `eaop_app`, then runs `pnpm install --frozen-lockfile`, `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm build`.
+CI (`.github/workflows/ci.yml`) uses a `postgres:16` service with `POSTGRES_DB=eaop_test`, creates `eaop_app`, then runs `pnpm install --frozen-lockfile`, `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm build`.
 
 ### Helpers (`tests/helpers/platform.ts`)
 

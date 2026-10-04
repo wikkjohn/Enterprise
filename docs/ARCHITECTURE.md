@@ -88,7 +88,7 @@ A failing event subscriber is retried individually via an `events.redeliver` job
 
 ## Repository assessment
 
-- The Git repository root is an unrelated product, **"Licensed Business Exchange"** — a static marketplace site (`index.html`, `ads.js`, Supabase functions/migrations, Playwright tests, its own `package.json` with `http-server`). The platform lives isolated under `platform/` with its own `package.json`, lockfile, workspace and tooling so neither project can break the other. CI for the platform is path-filtered (`.github/workflows/platform-ci.yml`, `paths: ["platform/**", ...]`).
+- The platform was first built under `platform/` in an unrelated repository (`wikkjohn/LicensedExchange`, a static marketplace site) and was moved here with its commit history (`git subtree split`); it shares no code with that site. The monorepo root is the repository root. CI is `.github/workflows/ci.yml`.
 - The six modules are placeholders: manifests reserve ids, route prefixes, permission keys, navigation and event names (`RESERVED_EVENT_TYPES`) only.
 
 ### Technical debt and known gaps

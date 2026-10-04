@@ -17,12 +17,12 @@ const DOCS = [
 export default function Page() {
   return (
     <div className="space-y-6">
-      <PageHeader title="Help & documentation" description="Platform documentation lives with the source in platform/docs." />
+      <PageHeader title="Help & documentation" description="Platform documentation lives with the source in the docs/ directory of the repository." />
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {DOCS.map(([title, file, desc]) => (
           <Card key={file}>
             <CardHeader title={title} />
-            <CardBody className="space-y-1 text-sm"><p className="text-muted">{desc}</p><code className="font-mono text-xs">platform/docs/{file}</code></CardBody>
+            <CardBody className="space-y-1 text-sm"><p className="text-muted">{desc}</p><code className="font-mono text-xs">docs/{file}</code></CardBody>
           </Card>
         ))}
       </div>

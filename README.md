@@ -2,7 +2,7 @@
 
 A multi-tenant **shared enterprise core** (identity, organizations, RBAC, audit, connectors, AI provider layer, policies, events/jobs, notifications, usage, search, observability) plus **six modular applications** that plug into it through a declarative manifest. The six modules are reserved placeholders today (`installStatus: "not_installed"`); the shared core and its HTTP API are implemented and tested.
 
-This directory is a self-contained pnpm monorepo. It lives under `platform/` inside an unrelated repository (the static "Licensed Business Exchange" site at the repo root) and shares nothing with it. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#repository-assessment).
+This repository is a self-contained pnpm monorepo. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#repository-assessment) for its origin and current status.
 
 ---
 

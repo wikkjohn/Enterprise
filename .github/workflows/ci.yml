@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: eaop
+          POSTGRES_PASSWORD: eaop
+          POSTGRES_DB: eaop_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U eaop -d eaop_test" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      TEST_DATABASE_ADMIN_URL: postgres://eaop:eaop@localhost:5432/eaop_test
+      TEST_DATABASE_URL: postgres://eaop_app:eaop_app@localhost:5432/eaop_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: 10.28.0 }
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - name: Create non-superuser runtime role
+        run: PGPASSWORD=eaop psql -h localhost -U eaop eaop_test -c "CREATE ROLE eaop_app WITH LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD 'eaop_app';"
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm lint
+      - name: Tests (unit + integration, incl. tenant-isolation release blocker)
+        run: pnpm test
+      - name: Build web app
+        run: pnpm build
+        env:
+          APP_SECRET: ci-build-secret-ci-build-secret-ci-build-0001
+          DATABASE_URL: postgres://unused
+          LOCAL_SECRETS_KEY: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
