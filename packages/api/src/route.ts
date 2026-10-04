@@ -49,7 +49,11 @@ export interface RouteOptions<BS extends z.ZodTypeAny | undefined, QS extends z.
   handler(args: RouteArgs<BS extends z.ZodTypeAny ? z.infer<BS> : undefined, QS extends z.ZodTypeAny ? z.infer<QS> : undefined>): Promise<unknown>;
 }
 
-export type RouteHandler = (req: Request, routeCtx?: { params?: Promise<Record<string, string | string[]>> | Record<string, string | string[]> }) => Promise<Response>;
+/** Matches Next.js App Router handlers: the second argument is always present. */
+export interface RouteContext {
+  params: Promise<Record<string, string | string[] | undefined>>;
+}
+export type RouteHandler = (req: Request, routeCtx: RouteContext) => Promise<Response>;
 
 const MUTATING = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 const MAX_BODY_BYTES = 2 * 1024 * 1024;
@@ -70,8 +74,8 @@ export function createRouteFactory(getPlatform: () => Platform | Promise<Platfor
         try {
           const meta: RequestMeta = { correlationId: requestId, ip: clientIp(req), userAgent: req.headers.get("user-agent") ?? undefined };
           const cookies = parseCookies(req.headers.get("cookie"));
-          const rawParams = routeCtx?.params ? await routeCtx.params : {};
-          const params = Object.fromEntries(Object.entries(rawParams).map(([k, v]) => [k, Array.isArray(v) ? v.join("/") : v]));
+          const rawParams = (await routeCtx?.params) ?? {};
+          const params = Object.fromEntries(Object.entries(rawParams).map(([k, v]) => [k, Array.isArray(v) ? v.join("/") : (v ?? "")]));
 
           // ── Authentication ────────────────────────────────────────────────
           let ctx: TenantContext | undefined;
