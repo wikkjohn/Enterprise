@@ -1,4 +1,4 @@
-import { anthropicProvider, createAIService, createOpenAICompatibleProvider, sandboxProvider, type AIService } from "@eaop/ai";
+import { anthropicProvider, createAIService, type AIProvider, createOpenAICompatibleProvider, sandboxProvider, type AIService } from "@eaop/ai";
 import { createAuditService, type AuditService } from "@eaop/audit";
 import { createApiKeyService, createAuthService, createSsoService, SessionManager, type ApiKeyService, type AuthService, type SsoService } from "@eaop/auth";
 import {
@@ -9,12 +9,6 @@ import { and, connectors, createDatabase, eq, ilike, memberships, or, policies, 
 import { CORE_EVENTS, createEventBus, createWebhookService, EventRegistry, type EventBus, type WebhookService } from "@eaop/events";
 import { createJobQueue, type JobQueue } from "@eaop/jobs";
 import { createModuleService, ModuleRegistry, type ModuleManifest, type ModuleService } from "@eaop/module-registry";
-import { manifest as agentGovernance } from "@eaop/module-agent-governance";
-import { manifest as aiOperations } from "@eaop/module-ai-operations";
-import { manifest as dataSecurity } from "@eaop/module-data-security";
-import { manifest as integrationHub } from "@eaop/module-integration-hub";
-import { manifest as knowledgeVerification } from "@eaop/module-knowledge-verification";
-import { manifest as workflowIntelligence } from "@eaop/module-workflow-intelligence";
 import {
   CORE_NOTIFICATION_TYPES, createNotificationService, NotificationTypeRegistry, UnconfiguredEmailSender, WebhookEmailSender,
   type EmailSender, type NotificationService,
@@ -32,8 +26,17 @@ import { type PlatformEnv } from "./config";
 import { createErrorReporter, type ErrorReporter } from "./errors";
 import { createHealthService, type HealthService } from "./health";
 
-/** The placeholder manifests for the six modular applications. */
-export const MODULE_MANIFESTS: ModuleManifest[] = [workflowIntelligence, integrationHub, agentGovernance, dataSecurity, knowledgeVerification, aiOperations];
+/**
+ * A module as installed into the platform: its declarative manifest plus an
+ * optional install hook that receives the shared core (to construct the
+ * module's services and register job handlers, event subscribers, search
+ * providers, AI policy hooks, ...). The core never imports module packages;
+ * the list of installed modules comes from @eaop/module-catalog.
+ */
+export interface ModuleDefinition {
+  manifest: ModuleManifest;
+  install?: (platform: Platform) => void;
+}
 
 export interface Platform {
   env: PlatformEnv;
@@ -65,6 +68,8 @@ export interface Platform {
   connectorCatalog: ConnectorCatalog;
   ai: AIService;
   health: HealthService;
+  /** Services constructed by installed modules, keyed by module id. */
+  moduleServices: Map<string, unknown>;
   /** Sync code registrations (permissions, roles, modules, AI catalog) to the DB. Idempotent. */
   bootstrap(): Promise<void>;
   close(): Promise<void>;
@@ -77,7 +82,10 @@ export interface PlatformOverrides {
   fetchImpl?: typeof fetch;
   email?: EmailSender;
   rateLimiter?: RateLimiter;
-  modules?: ModuleManifest[];
+  /** Installed modules (definitions or bare manifests). Defaults to none. */
+  modules?: Array<ModuleDefinition | ModuleManifest>;
+  /** Extra / replacement AI providers (by kind) — tests and private deployments. */
+  extraAIProviders?: AIProvider[];
   extraConnectorAdapters?: ConnectorAdapter[];
   urlGuard?: UrlGuardOptions;
   resolveTxt?: (name: string) => Promise<string[][]>;
@@ -148,6 +156,7 @@ export function createPlatform(env: PlatformEnv, o: PlatformOverrides = {}): Pla
       createOpenAICompatibleProvider("azure_openai", { allowPrivateNetworks: env.ALLOW_PRIVATE_NETWORK_EGRESS, fetchImpl: o.fetchImpl }),
       createOpenAICompatibleProvider("local", { allowPrivateNetworks: true, fetchImpl: o.fetchImpl }),
       ...(isProd ? [] : [sandboxProvider]),
+      ...(o.extraAIProviders ?? []),
     ],
     env: env as unknown as Record<string, string | undefined>,
     environment: env.APP_ENV,
@@ -202,7 +211,8 @@ export function createPlatform(env: PlatformEnv, o: PlatformOverrides = {}): Pla
   });
 
   // ── Install modules into the shared registries ──────────────────────────
-  for (const m of o.modules ?? MODULE_MANIFESTS) {
+  const definitions: ModuleDefinition[] = (o.modules ?? []).map((m) => ("manifest" in m ? m : { manifest: m }));
+  for (const { manifest: m } of definitions) {
     moduleRegistry.add(m);
     permissionRegistry.register(m.id, m.permissions);
     for (const [role, patterns] of Object.entries(m.roleGrants ?? {})) roleGrants[role] = [...(roleGrants[role] ?? []), ...(patterns ?? [])];
@@ -225,13 +235,14 @@ export function createPlatform(env: PlatformEnv, o: PlatformOverrides = {}): Pla
     );
   });
 
-  return {
+  const platform: Platform = {
     env, db, logger, metrics, tracer, errors, secrets, rateLimiter, audit, jobs,
     events: { registry: eventRegistry, bus, webhooks },
     rbac: { registry: permissionRegistry, authorizer, roles },
     policies: policyService, policyEngine, notifications, notificationTypes, usage, search, modules, moduleRegistry,
     organizations, auth, sessions, apiKeys, sso,
     connectors: connectorService, connectorCatalog, ai, health,
+    moduleServices: new Map(),
     async bootstrap() {
       await roles.syncCatalog();
       await modules.syncCatalog();
@@ -239,4 +250,7 @@ export function createPlatform(env: PlatformEnv, o: PlatformOverrides = {}): Pla
     },
     close: () => db.close(),
   };
+  // Modules wire themselves into the shared core only after it is fully built.
+  for (const d of definitions) if (d.manifest.installStatus === "installed") d.install?.(platform);
+  return platform;
 }

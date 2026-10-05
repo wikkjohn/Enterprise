@@ -1,3 +1,4 @@
+import { MODULE_DEFINITIONS } from "@eaop/module-catalog";
 import { createPlatform, loadEnv, type Platform } from "@eaop/platform";
 
 /**
@@ -8,7 +9,7 @@ const g = globalThis as unknown as { __eaopPlatform?: Promise<Platform> };
 
 export function getPlatform(): Promise<Platform> {
   g.__eaopPlatform ??= (async () => {
-    const platform = createPlatform(loadEnv());
+    const platform = createPlatform(loadEnv(), { modules: MODULE_DEFINITIONS });
     await platform.bootstrap();
     return platform;
   })().catch((err) => {

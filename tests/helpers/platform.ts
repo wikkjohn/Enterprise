@@ -1,5 +1,6 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import { createPlatform, loadEnv, type Platform, type PlatformOverrides } from "../../packages/platform/src";
+import { MODULE_DEFINITIONS } from "../../packages/module-catalog/src";
 import { MemorySink } from "../../packages/observability/src";
 import { hashPassword } from "../../packages/security/src";
 import { eq, memberships, users } from "../../packages/db/src";
@@ -23,6 +24,7 @@ export async function createTestPlatform(overrides: PlatformOverrides = {}, envO
     logSink: logs,
     resolveTxt: async () => [],
     urlGuard: { resolve: async () => ["93.184.216.34"] },
+    modules: MODULE_DEFINITIONS,
     ...overrides,
   });
   await platform.bootstrap();

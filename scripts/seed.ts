@@ -5,6 +5,7 @@
  */
 import { randomUUID } from "node:crypto";
 import { eq, users } from "@eaop/db";
+import { MODULE_DEFINITIONS } from "@eaop/module-catalog";
 import { createPlatform, loadEnv } from "@eaop/platform";
 
 const env = loadEnv();
@@ -14,7 +15,7 @@ if (env.APP_ENV === "production") {
 }
 const email = process.env.SEED_ADMIN_EMAIL ?? "admin@example.com";
 const password = process.env.SEED_ADMIN_PASSWORD ?? "change-me-on-first-login";
-const p = createPlatform(env);
+const p = createPlatform(env, { modules: MODULE_DEFINITIONS });
 await p.bootstrap();
 let adminId: string;
 try {

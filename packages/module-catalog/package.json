@@ -1,0 +1,17 @@
+{
+  "name": "@eaop/module-catalog",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": { ".": "./src/index.ts" },
+  "dependencies": {
+    "@eaop/module-agent-governance": "workspace:*",
+    "@eaop/module-ai-operations": "workspace:*",
+    "@eaop/module-data-security": "workspace:*",
+    "@eaop/module-integration-hub": "workspace:*",
+    "@eaop/module-knowledge-verification": "workspace:*",
+    "@eaop/module-registry": "workspace:*",
+    "@eaop/module-workflow-intelligence": "workspace:*",
+    "@eaop/platform": "workspace:*"
+  }
+}

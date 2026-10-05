@@ -22,7 +22,7 @@ All packages ship TypeScript source (`"exports": { ".": "./src/index.ts" }`); Ne
 2. Creates the shared registries: `PermissionRegistry` (seeded with `CORE_PERMISSIONS`), `EventRegistry` (`CORE_EVENTS`), `NotificationTypeRegistry` (`CORE_NOTIFICATION_TYPES`), `ModuleRegistry`, `PolicyEngine`.
 3. Wires services in dependency order: event bus → webhooks → authorizer → role service → policy service → email sender → notifications → usage → search → module service (`authorizer.setEntitlements(modules)`) → organizations → sessions/auth → API keys → SSO → connector catalog + service → AI service → health service.
 4. Registers core search providers (`member`, `connector`, `policy`).
-5. Installs each module manifest (default `MODULE_MANIFESTS`) into the shared registries — permissions, role grants, events, notification types, search providers, policy kinds. See [MODULE-SYSTEM.md](MODULE-SYSTEM.md).
+5. Installs each module definition passed in `modules` (apps pass `MODULE_DEFINITIONS` from `@eaop/module-catalog`) into the shared registries, then runs installed modules' `install(platform)` hooks — permissions, role grants, events, notification types, search providers, policy kinds. See [MODULE-SYSTEM.md](MODULE-SYSTEM.md).
 6. Subscribes `core.usage.notify` to `usage.threshold.exceeded`.
 
 `platform.bootstrap()` syncs code registrations to the database (idempotent): `roles.syncCatalog()` (permissions + system roles, under an advisory transaction lock), `modules.syncCatalog()`, `ai.syncCatalog()`.

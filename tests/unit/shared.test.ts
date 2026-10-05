@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { AppError, decodeCursor, encodeCursor, isUuid } from "../../packages/shared-types/src";
 import { createMetrics, sanitizeCorrelationId } from "../../packages/observability/src";
 import { PermissionRegistry, CORE_PERMISSIONS, SYSTEM_ROLES } from "../../packages/rbac/src";
-import { MODULE_MANIFESTS } from "../../packages/platform/src";
+import { MODULE_MANIFESTS } from "../../packages/module-catalog/src";
 import { ModuleRegistry } from "../../packages/module-registry/src";
 
 describe("shared types", () => {
@@ -48,13 +48,13 @@ describe("permission registry and system roles", () => {
   });
 });
 
-describe("module placeholders", () => {
-  it("six placeholders, unique ids/paths, namespaced permissions, all not_installed", () => {
+describe("module catalog", () => {
+  it("six modules, unique ids/paths, namespaced permissions; only Workflow Intelligence installed", () => {
     expect(MODULE_MANIFESTS).toHaveLength(6);
     const reg = new ModuleRegistry();
     MODULE_MANIFESTS.forEach((m) => reg.add(m));
     expect(new Set(MODULE_MANIFESTS.map((m) => m.basePath)).size).toBe(6);
-    expect(MODULE_MANIFESTS.every((m) => m.installStatus === "not_installed")).toBe(true);
+    expect(MODULE_MANIFESTS.filter((m) => m.installStatus === "installed").map((m) => m.id)).toEqual(["workflow_intelligence"]);
     const r = new PermissionRegistry();
     r.register("core", CORE_PERMISSIONS);
     for (const m of MODULE_MANIFESTS) expect(() => r.register(m.id, m.permissions)).not.toThrow();
