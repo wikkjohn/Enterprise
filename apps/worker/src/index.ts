@@ -6,9 +6,10 @@
  *   pnpm worker
  */
 import { hostname } from "node:os";
+import { MODULE_DEFINITIONS } from "@eaop/module-catalog";
 import { createPlatform, loadEnv, runRetention } from "@eaop/platform";
 
-const platform = createPlatform(loadEnv());
+const platform = createPlatform(loadEnv(), { modules: MODULE_DEFINITIONS });
 await platform.bootstrap();
 const workerId = `${hostname()}:${process.pid}`;
 const log = platform.logger.child({ component: "worker", workerId });

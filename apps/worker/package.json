@@ -3,5 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "dependencies": { "@eaop/platform": "workspace:*", "@eaop/observability": "workspace:*" }
+  "dependencies": {
+    "@eaop/module-catalog": "workspace:*",
+    "@eaop/observability": "workspace:*",
+    "@eaop/platform": "workspace:*"
+  }
 }

@@ -4,7 +4,7 @@ The platform is one shared core plus six modular applications. A module is a wor
 
 ## The six modules
 
-All six are placeholders today (`installStatus: "not_installed"`, `version: "0.0.0"`). They reserve identity, route prefix, permission keys, navigation and event names (`RESERVED_EVENT_TYPES` in each `src/index.ts`). They appear in `GET /api/v1/modules` and in navigation with `state: "not_installed"`, report health `not_configured` ("Module not yet installed"), and `enable` returns `CONFLICT` ("… is not installed on this platform yet.").
+**AI Workflow Intelligence is installed** (`installStatus: "installed"`, v1.0.0 — see [modules/WORKFLOW-INTELLIGENCE.md](modules/WORKFLOW-INTELLIGENCE.md)). The other five are placeholders (`installStatus: "not_installed"`, `version: "0.0.0"`). Placeholders reserve identity, route prefix, permission keys, navigation and event names (`RESERVED_EVENT_TYPES` in each `src/index.ts`). They appear in `GET /api/v1/modules` and in navigation with `state: "not_installed"`, report health `not_configured` ("Module not yet installed"), and `enable` returns `CONFLICT` ("… is not installed on this platform yet.").
 
 | Id | Package dir | Name | `basePath` | Entry permission | Reserved permissions |
 |---|---|---|---|---|---|
@@ -15,7 +15,7 @@ All six are placeholders today (`installStatus: "not_installed"`, `version: "0.0
 | `knowledge_verification` | `modules/knowledge-verification` | AI Knowledge & Verification | `/m/knowledge-verification` | `knowledge.read` | `knowledge.{read,search,ingest,manage,admin}`, `knowledge.source.manage`, `knowledge.conflict.review`, `knowledge.verification.read` |
 | `ai_operations` | `modules/ai-operations` | AI Operations Management | `/m/ai-operations` | `ai_ops.read` | `ai_ops.{read,admin}`, `ai_ops.tool.manage`, `ai_ops.vendor.manage`, `ai_ops.cost.{read,manage}`, `ai_ops.adoption.read`, `ai_ops.training.manage`, `ai_ops.request.manage` |
 
-Module ids are fixed in `packages/shared-types/src/modules.ts` (`MODULE_IDS`). The default install list is `MODULE_MANIFESTS` in `packages/platform/src/platform.ts`.
+Module ids are fixed in `packages/shared-types/src/modules.ts` (`MODULE_IDS`). The install list is `MODULE_DEFINITIONS` in `packages/module-catalog/src/index.ts`; apps (web, worker, scripts) and `createTestPlatform` pass it to `createPlatform(env, { modules })`. `createPlatform` itself installs **no** modules by default — the core never imports module packages, which keeps the dependency graph acyclic (modules depend on `@eaop/platform`, not the reverse).
 
 ## `ModuleManifest` contract
 
@@ -41,11 +41,16 @@ Defined in `packages/module-registry/src/manifest.ts`.
 | `healthCheck?` | `() => Promise<HealthStatus>` | Called by `modules.health()` for installed modules |
 | `onEnable?`, `onDisable?` | `(ctx: TenantContext) => Promise<void>` | Called after the enable/disable transaction commits |
 
-### How `createPlatform` installs a manifest
+### `ModuleDefinition` and how `createPlatform` installs it
 
 ```ts
 // packages/platform/src/platform.ts
-for (const m of o.modules ?? MODULE_MANIFESTS) {
+export interface ModuleDefinition {
+  manifest: ModuleManifest;
+  /** Runs once the shared core is fully built (installed modules only). */
+  install?: (platform: Platform) => void;
+}
+for (const { manifest: m } of definitions) {
   moduleRegistry.add(m);                                  // basePath + namespace checks
   permissionRegistry.register(m.id, m.permissions);       // owner = module id
   for (const [role, patterns] of Object.entries(m.roleGrants ?? {})) roleGrants[role] = [...(roleGrants[role] ?? []), ...(patterns ?? [])];
@@ -55,6 +60,8 @@ for (const m of o.modules ?? MODULE_MANIFESTS) {
   for (const k of m.policyKinds ?? []) policyService.registerKind({ ...k, owner: m.id });
 }
 ```
+
+After every core service exists, `install(platform)` runs for each installed module. That is where a module constructs its services from the shared core (db, authorizer, audit, bus, notifications, ai, connectors, jobs, …), registers search providers / job handlers / event subscribers / AI policy hooks, and publishes its service in `platform.moduleServices` (keyed by module id) for the web and worker apps. Placeholders are bare manifests.
 
 `bootstrap()` then upserts the `permissions` table, recomputes system-role permission sets including `roleGrants`, and upserts the `modules` table.
 
@@ -90,197 +97,27 @@ A module **MUST**:
 
 ---
 
-## Adding the first module (Workflow Intelligence)
+## Installing a module — reference implementation (Workflow Intelligence)
 
-Recommended build order: **Workflow Intelligence → Integration → Agent Governance → Data Security → Knowledge & Verification → AI Operations.**
+Recommended build order: **Workflow Intelligence → Integration → Agent Governance → Data Security → Knowledge & Verification → AI Operations.** Workflow Intelligence is the worked example; copy its layout.
 
-The skeletons below are illustrative; none of this code exists yet.
+| Piece | Where | Notes |
+|---|---|---|
+| Manifest + `ModuleDefinition` | `modules/workflow-intelligence/src/index.ts` | `installStatus: "installed"`, permissions, `roleGrants`, event contracts with Zod payload schemas, notification types, navigation. `install()` builds the service and registers search |
+| Tables | `modules/workflow-intelligence/migrations/0001_*.sql` | Module-prefixed (`wi_*`), every table has `organization_id` and ends with `SELECT eaop_enable_tenant_rls(...)`. Auto-applied by `pnpm db:migrate` (owner `module:workflow-intelligence`) and by the test global setup |
+| Drizzle mirror | `src/schema.ts` | Imports shared tables (`organizations`, `users`, `connectors`, `ai_runs`) for FKs; numeric columns use `mode: "number"` |
+| Pure engines | `src/scoring.ts`, `src/roi.ts`, `src/csv.ts`, `src/redesign.ts` | No I/O — unit-tested directly |
+| Service | `src/service.ts` | Every method: `authorizer.require` → `db.withTenant(scopeOf(ctx))` → `audit.record` + `bus.publish` (+ `notifications.notify`). Validation errors become `VALIDATION_FAILED` |
+| Catalog entry | `packages/module-catalog/src/index.ts` | Replace `{ manifest }` with the module's `ModuleDefinition` |
+| API | `apps/web/src/app/api/v1/m/<module>/…/route.ts` | `route({ module: "<id>", permission, … })`; get the service with the module's typed accessor (`workflowService(platform)`) |
+| UI | `apps/web/src/app/(app)/m/<module>/…` + `apps/web/src/components/<module>/` | A module `layout.tsx` gates entitlement and renders sub-navigation from `viewer.navigation`; static folders take precedence over the catch-all `m/[module]/[[...rest]]` |
+| Tests | `tests/unit/<module>-*.test.ts`, `tests/integration/<module>.test.ts` | CRUD, tenant isolation, RBAC, engines, events, AI logging |
 
-### 1. Manifest (`modules/workflow-intelligence/src/index.ts`)
+Rules learned building it:
 
-```ts
-import { z } from "zod";
-import { type ModuleManifest } from "@eaop/module-registry";
+- Add the package to `apps/web/next.config.ts` `transpilePackages` and to the app's `package.json`.
+- Client components may import **types only** from a module package (it pulls in `pg`); share formatting helpers in a `"use client"` file.
+- One transaction is one connection: run queries sequentially (no `Promise.all` on `tx`).
+- Render anything locale/timezone/ICU-dependent identically on server and client (e.g. a mount-gated `LocalDate`, explicit `Intl` fraction digits) or hydration fails in production.
 
-const id = z.string().uuid();
-
-export const manifest: ModuleManifest = {
-  id: "workflow_intelligence",
-  name: "AI Workflow Intelligence",
-  shortName: "Workflow Intelligence",
-  description: "Find, score and redesign the workflows where AI creates measurable value, and track realized ROI.",
-  version: "0.1.0",
-  installStatus: "installed",                          // was "not_installed"
-  icon: "Workflow",
-  basePath: "/m/workflow-intelligence",
-  entryPermission: "workflow.read",
-  permissions: [
-    { key: "workflow.read", description: "View workflows.", risk: "low" },
-    { key: "workflow.create", description: "Create workflows.", risk: "low" },
-    { key: "workflow.analyze", description: "Run AI analysis on a workflow.", risk: "medium" },
-    { key: "workflow.approve", description: "Approve opportunities.", risk: "high" },
-    // ...keep the remaining reserved keys
-  ],
-  roleGrants: {
-    analyst: ["workflow.read", "workflow.create", "workflow.analyze"],
-    department_leader: ["workflow.read", "workflow.approve"],
-    executive: ["workflow.read", "workflow.roi.read"],
-    // org_admin already receives every registered permission via "*"
-  },
-  events: [
-    { type: "workflow.created", owner: "workflow_intelligence", version: 1, description: "A workflow was added.",
-      schema: z.object({ workflowId: id, name: z.string() }) },
-    { type: "workflow.analyzed", owner: "workflow_intelligence", version: 1, description: "AI analysis completed.",
-      schema: z.object({ workflowId: id, runId: id, score: z.number() }) },
-  ],
-  notificationTypes: [
-    { key: "workflow.analysis_ready", description: "A workflow analysis finished.", defaultPriority: "normal", channels: ["in_app"] },
-  ],
-  searchProviders: [/* see step 3 */],
-  navigation: [
-    { label: "Dashboard", href: "/", permission: "workflow.read" },
-    { label: "Inventory", href: "/workflows", permission: "workflow.read" },
-  ],
-};
-export default manifest;
-```
-
-Add `zod`, `@eaop/db`, `@eaop/platform` (and `drizzle-orm` if you declare Drizzle tables) to the module's `package.json`, and add the package to `transpilePackages` in `apps/web/next.config.ts` (already listed for all six).
-
-### 2. Migration (`modules/workflow-intelligence/migrations/0001_workflows.sql`)
-
-```sql
-CREATE TABLE workflows (
-  id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  organization_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
-  name            text NOT NULL,
-  description     text NOT NULL DEFAULT '',
-  status          text NOT NULL DEFAULT 'draft',
-  created_by      uuid REFERENCES users(id) ON DELETE SET NULL,
-  created_at      timestamptz(3) NOT NULL DEFAULT now(),
-  updated_at      timestamptz(3) NOT NULL DEFAULT now()
-);
-CREATE INDEX workflows_org_idx ON workflows (organization_id, created_at);
-CREATE UNIQUE INDEX workflows_org_name_uq ON workflows (organization_id, name);
-
--- Mandatory: ENABLE + FORCE RLS, tenant_isolation policy, grants to eaop_runtime.
-SELECT eaop_enable_tenant_rls('workflows');
-```
-
-`pnpm db:migrate` picks it up as `module:workflow-intelligence/0001_workflows.sql`. Mirror the table in Drizzle (e.g. `modules/workflow-intelligence/src/schema.ts` with `pgTable("workflows", ...)`) so the service gets typed queries.
-
-### 3. Service (`modules/workflow-intelligence/src/service.ts`)
-
-```ts
-import { and, eq, scopeOf } from "@eaop/db";
-import { type Platform } from "@eaop/platform";
-import { notFound, type TenantContext } from "@eaop/shared-types";
-import { workflows } from "./schema";
-
-const MODULE = "workflow_intelligence" as const;
-
-export function createWorkflowService(p: Platform) {
-  return {
-    async create(ctx: TenantContext, input: { name: string; description?: string }) {
-      await p.rbac.authorizer.require(ctx, "workflow.create");
-      return p.db.withTenant(scopeOf(ctx), async (tx) => {
-        const [row] = await tx.insert(workflows).values({
-          organizationId: ctx.organizationId,                // RLS WITH CHECK rejects any other org
-          name: input.name,
-          description: input.description ?? "",
-          createdBy: ctx.actor.type === "user" ? ctx.actor.id : null,
-        }).returning();
-        // Same transaction: audit + outbox commit atomically with the insert.
-        await p.audit.record(ctx, { module: MODULE, action: "workflow.created", resourceType: "workflow", resourceId: row!.id, after: input });
-        await p.events.bus.publish(ctx, "workflow.created", { workflowId: row!.id, name: row!.name });
-        return row!;
-      });
-    },
-
-    async analyze(ctx: TenantContext, workflowId: string) {
-      await p.rbac.authorizer.require(ctx, "workflow.analyze", { type: "workflow", id: workflowId });
-      const [wf] = await p.db.withTenant(scopeOf(ctx), (tx) =>
-        tx.select().from(workflows).where(and(eq(workflows.id, workflowId), eq(workflows.organizationId, ctx.organizationId))).limit(1));
-      if (!wf) throw notFound("Workflow", workflowId);
-      const result = await p.ai.execute(ctx, {
-        moduleId: MODULE,
-        useCase: "workflow.analyze",
-        tier: "standard",
-        dataClassification: "internal",
-        responseFormat: "json",
-        promptTemplate: { id: "workflow.analyze", version: "1" },
-        references: { workflowId },                          // ids only, never content
-        system: "Score this workflow for AI automation potential. Return {\"score\": number}.",
-        messages: [{ role: "user", content: `${wf.name}\n\n${wf.description}` }],
-      });
-      const score = Number((JSON.parse(result.text) as { score?: number }).score ?? 0);
-      await p.audit.record(ctx, { module: MODULE, action: "workflow.analyzed", resourceType: "workflow", resourceId: workflowId, metadata: { runId: result.runId, score } });
-      await p.events.bus.publish(ctx, "workflow.analyzed", { workflowId, runId: result.runId, score });
-      return { score, runId: result.runId };
-    },
-  };
-}
-```
-
-Notes: `withTenant` is re-entrant, so `audit.record` and `bus.publish` called inside it join the same transaction. `ai.execute` already authorizes `ai.use`, rate-limits, applies `ai_usage` policies, logs the run and meters cost.
-
-### 4. API route (`apps/web/src/app/api/v1/m/workflow-intelligence/workflows/route.ts`)
-
-```ts
-import { z } from "zod";
-import { route } from "@/lib/api";
-import { createWorkflowService } from "@eaop/module-workflow-intelligence/service"; // add an export entry
-
-export const POST = route({
-  auth: "any",                          // session or API key
-  module: "workflow_intelligence",      // MODULE_NOT_ENABLED when disabled
-  permission: "workflow.create",
-  idempotent: true,
-  body: z.object({ name: z.string().min(1).max(160), description: z.string().max(4000).optional() }),
-  handler: ({ platform, ctx, body }) => createWorkflowService(platform).create(ctx, body),
-});
-```
-
-### 5. UI page (`apps/web/src/app/(app)/m/workflow-intelligence/page.tsx`)
-
-```tsx
-import { requireViewer } from "@/lib/viewer";
-import { getPlatform } from "@/lib/platform";
-
-export default async function WorkflowDashboard() {
-  const viewer = await requireViewer();
-  const platform = await getPlatform();
-  if (!(await platform.modules.isEnabled(viewer.ctx.organizationId, "workflow_intelligence"))) {
-    return <p>This module is not enabled for your organization.</p>;   // use the design-system empty state
-  }
-  // Service calls with viewer.ctx enforce permissions server-side.
-  return <div>…</div>;
-}
-```
-
-Pages under `(app)` are wrapped by the shell (`apps/web/src/app/(app)/layout.tsx`, `apps/web/src/components/app-shell.tsx`). The generic catch-all `apps/web/src/app/(app)/m/[module]/[[...rest]]/page.tsx` renders `NotInstalledState` for placeholders, a "Not enabled for your organization" state with an **Enable module** action (shown to `module.manage` holders) for installed-but-disabled modules, and "Module UI not provided" for enabled modules without pages. A static `m/workflow-intelligence/` folder takes precedence over that dynamic segment. Server pages must not pass functions (e.g. a `DataTable` cell renderer) to client components — put tables in a client component under `apps/web/src/components`.
-
-### 6. Tests
-
-- **Unit**: pure logic (scoring, schemas) under `tests/unit/`.
-- **Integration**: `tests/integration/workflow-intelligence.test.ts` using `createTestPlatform({ modules: [...] })` with the installed manifest, `createOrg`, `addMember`, `expectCode`.
-- **Module migrations in tests**: `tests/helpers/global-setup.ts` applies core migrations **and** `moduleMigrationSources()`, so `modules/<name>/migrations/*.sql` are present in the test database automatically.
-- **Tenant isolation (mandatory)** — copy the pattern of `tests/integration/tenant-isolation.test.ts`:
-
-```ts
-it("workflows of B are invisible and immutable from A", async () => {
-  await p.modules.enable(A.adminCtx(), "workflow_intelligence");
-  await p.modules.enable(B.adminCtx(), "workflow_intelligence");
-  const wf = await svc.create(B.adminCtx(), { name: "B secret flow" });
-  await expectCode(svc.analyze(A.adminCtx(), wf.id), "NOT_FOUND");
-  const n = await p.db.withTenant({ organizationId: A.org.id }, async (tx) =>
-    (await tx.execute(sql`select count(*)::int as n from workflows where organization_id = ${B.org.id}`)).rows[0]);
-  expect(n).toEqual({ n: 0 });
-});
-it("module permissions are denied while the module is disabled", async () => {
-  await p.modules.disable(A.adminCtx(), "workflow_intelligence");
-  await expectCode(svc.create(A.adminCtx(), { name: "x" }), "MODULE_NOT_ENABLED");
-});
-```
-
-The existing RLS assertions ("every table with organization_id has RLS enabled AND forced", "A's scope sees zero rows owned by B in every tenant table") automatically cover the new table once module migrations are applied in tests.
+The existing RLS assertions in `tests/integration/tenant-isolation.test.ts` ("every table with organization_id has RLS enabled AND forced", "A's scope sees zero rows owned by B in every tenant table") automatically cover module tables because module migrations are applied in tests.

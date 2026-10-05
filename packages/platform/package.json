@@ -3,7 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "exports": { ".": "./src/index.ts" },
+  "exports": {
+    ".": "./src/index.ts"
+  },
   "dependencies": {
     "@eaop/ai": "workspace:*",
     "@eaop/audit": "workspace:*",
@@ -13,12 +15,6 @@
     "@eaop/events": "workspace:*",
     "@eaop/jobs": "workspace:*",
     "@eaop/module-registry": "workspace:*",
-    "@eaop/module-agent-governance": "workspace:*",
-    "@eaop/module-ai-operations": "workspace:*",
-    "@eaop/module-data-security": "workspace:*",
-    "@eaop/module-integration-hub": "workspace:*",
-    "@eaop/module-knowledge-verification": "workspace:*",
-    "@eaop/module-workflow-intelligence": "workspace:*",
     "@eaop/notifications": "workspace:*",
     "@eaop/observability": "workspace:*",
     "@eaop/organizations": "workspace:*",

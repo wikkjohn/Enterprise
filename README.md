@@ -1,6 +1,6 @@
 # Enterprise AI Operating Platform
 
-A multi-tenant **shared enterprise core** (identity, organizations, RBAC, audit, connectors, AI provider layer, policies, events/jobs, notifications, usage, search, observability) plus **six modular applications** that plug into it through a declarative manifest. The six modules are reserved placeholders today (`installStatus: "not_installed"`); the shared core and its HTTP API are implemented and tested.
+A multi-tenant **shared enterprise core** (identity, organizations, RBAC, audit, connectors, AI provider layer, policies, events/jobs, notifications, usage, search, observability) plus **six modular applications** that plug into it through a declarative manifest. **AI Workflow Intelligence** is installed ([docs/modules/WORKFLOW-INTELLIGENCE.md](docs/modules/WORKFLOW-INTELLIGENCE.md)); the other five modules are reserved placeholders (`installStatus: "not_installed"`). The shared core and its HTTP API are implemented and tested.
 
 This repository is a self-contained pnpm monorepo. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#repository-assessment) for its origin and current status.
 
@@ -26,7 +26,7 @@ This repository is a self-contained pnpm monorepo. See [docs/ARCHITECTURE.md](do
         ┌──────────────────────┐                        workflow-intelligence,
         │ PostgreSQL 16        │◀── apps/worker          integration-hub, agent-governance,
         │ RLS on every tenant  │    (jobs, event outbox, data-security, knowledge-verification,
-        │ table; append-only   │     health sweep,       ai-operations  (placeholders)
+        │ table; append-only   │     health sweep,       ai-operations  (WI installed)
         │ audit; job queue;    │     retention)
         │ event outbox         │
         └──────────────────────┘
@@ -97,7 +97,7 @@ Next.js App Router pages in `apps/web/src/app`:
 | Group | Routes |
 |---|---|
 | `(auth)` | `/login` (with SSO discovery), `/mfa`, `/mfa/enroll`, `/invite/[token]`, `/forgot-password`, `/reset-password` |
-| `(app)` | `/` (overview), `/m/[module]/[[...rest]]` (module pages: "not yet installed" / "not enabled" with an enable action), `/notifications`, `/settings/profile` (password, MFA, sessions), `/help`, `/platform` (platform-admin org provisioning) |
+| `(app)` | `/` (overview), `/m/[module]/[[...rest]]` (module pages: "not yet installed" / "not enabled" with an enable action), `/m/workflow-intelligence/…` (dashboard, inventory, workflow detail + process-model editor, opportunities, implementations), `/notifications`, `/settings/profile` (password, MFA, sessions), `/help`, `/platform` (platform-admin org provisioning) |
 | `(app)/admin` | `/admin`, `/admin/organization`, `/admin/users`, `/admin/roles`, `/admin/modules`, `/admin/connectors`, `/admin/connectors/[id]`, `/admin/ai-providers`, `/admin/ai-runs`, `/admin/policies`, `/admin/policies/[key]`, `/admin/audit`, `/admin/webhooks`, `/admin/security`, `/admin/usage`, `/admin/api-keys`, `/admin/health` |
 
 The shell (`apps/web/src/components/app-shell.tsx`) renders module navigation from `modules.navigation(ctx)` and admin navigation from `apps/web/src/lib/admin-nav.ts` (each entry permission-filtered), plus the organization switcher, ⌘K command palette (backed by `/api/v1/search`), notifications and account menu. Every page re-checks permissions server-side through service calls with `viewer.ctx`.
@@ -129,7 +129,8 @@ The shell (`apps/web/src/components/app-shell.tsx`) renders module navigation fr
 | `packages/platform` | `createPlatform()` composition root, env config, health, error reporter, retention |
 | `packages/api` | Framework-agnostic HTTP kit: `createRouteFactory()` / envelopes |
 | `packages/design-system` | Tailwind v4 tokens + accessible React components |
-| `modules/*` | Six placeholder module manifests |
+| `modules/*` | Module packages: `workflow-intelligence` (installed), five placeholder manifests |
+| `packages/module-catalog` | `MODULE_DEFINITIONS` — the modules apps install |
 | `tests/` | `unit/`, `integration/`, `helpers/` |
 | `scripts/` | `seed.ts`, `create-platform-admin.ts` |
 | `deploy/`, `Dockerfile`, `docker-compose.yml` | Container build and local compose stack |
@@ -158,7 +159,8 @@ The shell (`apps/web/src/components/app-shell.tsx`) renders module navigation fr
 | Redis-backed rate limiter | Not implemented | In-memory limiter is per instance; `REDIS_URL` is reserved (commented in `.env.example`, not read) |
 | Email | Requires credentials | Webhook relay you operate (`EMAIL_WEBHOOK_URL`) |
 | Web UI | Implemented | Sign-in/MFA/invitation/reset flows, app shell, admin console, platform console — see below |
-| Six modules | Placeholders | Catalog shows "not installed"; cannot be enabled |
+| AI Workflow Intelligence | Implemented | Enable per org under Administration → Modules; AI redesign needs a real AI provider |
+| Other five modules | Placeholders | Catalog shows "not installed"; cannot be enabled |
 
 No compliance certification is claimed. See [docs/SECURITY.md](docs/SECURITY.md).
 

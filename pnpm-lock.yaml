@@ -11,6 +11,9 @@ importers:
       '@eaop/db':
         specifier: workspace:*
         version: link:packages/db
+      '@eaop/module-catalog':
+        specifier: workspace:*
+        version: link:packages/module-catalog
       '@eaop/platform':
         specifier: workspace:*
         version: link:packages/platform
@@ -75,9 +78,15 @@ importers:
       '@eaop/events':
         specifier: workspace:*
         version: link:../../packages/events
+      '@eaop/module-catalog':
+        specifier: workspace:*
+        version: link:../../packages/module-catalog
       '@eaop/module-registry':
         specifier: workspace:*
         version: link:../../packages/module-registry
+      '@eaop/module-workflow-intelligence':
+        specifier: workspace:*
+        version: link:../../modules/workflow-intelligence
       '@eaop/notifications':
         specifier: workspace:*
         version: link:../../packages/notifications
@@ -142,6 +151,9 @@ importers:
 
   apps/worker:
     dependencies:
+      '@eaop/module-catalog':
+        specifier: workspace:*
+        version: link:../../packages/module-catalog
       '@eaop/observability':
         specifier: workspace:*
         version: link:../../packages/observability
@@ -196,12 +208,45 @@ importers:
 
   modules/workflow-intelligence:
     dependencies:
+      '@eaop/ai':
+        specifier: workspace:*
+        version: link:../../packages/ai
+      '@eaop/audit':
+        specifier: workspace:*
+        version: link:../../packages/audit
+      '@eaop/connectors':
+        specifier: workspace:*
+        version: link:../../packages/connectors
+      '@eaop/db':
+        specifier: workspace:*
+        version: link:../../packages/db
+      '@eaop/events':
+        specifier: workspace:*
+        version: link:../../packages/events
       '@eaop/module-registry':
         specifier: workspace:*
         version: link:../../packages/module-registry
+      '@eaop/notifications':
+        specifier: workspace:*
+        version: link:../../packages/notifications
+      '@eaop/platform':
+        specifier: workspace:*
+        version: link:../../packages/platform
+      '@eaop/rbac':
+        specifier: workspace:*
+        version: link:../../packages/rbac
+      '@eaop/search':
+        specifier: workspace:*
+        version: link:../../packages/search
       '@eaop/shared-types':
         specifier: workspace:*
         version: link:../../packages/shared-types
+      drizzle-orm:
+        specifier: ^0.45.3
+        version: 0.45.3(@types/pg@8.23.1)(pg@8.23.1)
+      zod:
+        specifier: ^3.25.76
+        version: 3.25.76
 
   packages/ai:
     dependencies:
@@ -439,6 +484,33 @@ importers:
         specifier: workspace:*
         version: link:../shared-types
 
+  packages/module-catalog:
+    dependencies:
+      '@eaop/module-agent-governance':
+        specifier: workspace:*
+        version: link:../../modules/agent-governance
+      '@eaop/module-ai-operations':
+        specifier: workspace:*
+        version: link:../../modules/ai-operations
+      '@eaop/module-data-security':
+        specifier: workspace:*
+        version: link:../../modules/data-security
+      '@eaop/module-integration-hub':
+        specifier: workspace:*
+        version: link:../../modules/integration-hub
+      '@eaop/module-knowledge-verification':
+        specifier: workspace:*
+        version: link:../../modules/knowledge-verification
+      '@eaop/module-registry':
+        specifier: workspace:*
+        version: link:../module-registry
+      '@eaop/module-workflow-intelligence':
+        specifier: workspace:*
+        version: link:../../modules/workflow-intelligence
+      '@eaop/platform':
+        specifier: workspace:*
+        version: link:../platform
+
   packages/module-registry:
     dependencies:
       '@eaop/audit':
@@ -546,27 +618,9 @@ importers:
       '@eaop/jobs':
         specifier: workspace:*
         version: link:../jobs
-      '@eaop/module-agent-governance':
-        specifier: workspace:*
-        version: link:../../modules/agent-governance
-      '@eaop/module-ai-operations':
-        specifier: workspace:*
-        version: link:../../modules/ai-operations
-      '@eaop/module-data-security':
-        specifier: workspace:*
-        version: link:../../modules/data-security
-      '@eaop/module-integration-hub':
-        specifier: workspace:*
-        version: link:../../modules/integration-hub
-      '@eaop/module-knowledge-verification':
-        specifier: workspace:*
-        version: link:../../modules/knowledge-verification
       '@eaop/module-registry':
         specifier: workspace:*
         version: link:../module-registry
-      '@eaop/module-workflow-intelligence':
-        specifier: workspace:*
-        version: link:../../modules/workflow-intelligence
       '@eaop/notifications':
         specifier: workspace:*
         version: link:../notifications

@@ -10,7 +10,7 @@ const config: NextConfig = {
   transpilePackages: [
     "@eaop/ai", "@eaop/api", "@eaop/audit", "@eaop/auth", "@eaop/connectors", "@eaop/db", "@eaop/design-system", "@eaop/events", "@eaop/jobs",
     "@eaop/module-registry", "@eaop/notifications", "@eaop/observability", "@eaop/organizations", "@eaop/platform", "@eaop/policies", "@eaop/rbac",
-    "@eaop/search", "@eaop/secrets", "@eaop/security", "@eaop/shared-types", "@eaop/usage",
+    "@eaop/search", "@eaop/secrets", "@eaop/security", "@eaop/shared-types", "@eaop/usage", "@eaop/module-catalog",
     "@eaop/module-workflow-intelligence", "@eaop/module-integration-hub", "@eaop/module-agent-governance", "@eaop/module-data-security",
     "@eaop/module-knowledge-verification", "@eaop/module-ai-operations",
   ],

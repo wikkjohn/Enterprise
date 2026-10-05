@@ -188,7 +188,7 @@ Recipients: `userIds`, `roleKeys`, `permission` (org-wide grants only) and/or `a
 | Export | File |
 |---|---|
 | `envSchema`, `loadEnv`, `PlatformEnv` | `config.ts` |
-| `createPlatform`, `Platform`, `PlatformOverrides`, `MODULE_MANIFESTS` | `platform.ts` |
+| `createPlatform`, `Platform`, `PlatformOverrides`, `ModuleDefinition` | `platform.ts` (module list: `@eaop/module-catalog`) |
 | `createHealthService` (`probe`, `report`), `HealthReport` | `health.ts` |
 | `createErrorReporter`, `ErrorReporter`, `ErrorSink` | `errors.ts` |
 | `runRetention(platform)` | `maintenance.ts` |

@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { type Platform } from "../../packages/platform/src";
 import { type ModuleManifest } from "../../packages/module-registry/src";
-import { MODULE_MANIFESTS } from "../../packages/platform/src";
+import { MODULE_MANIFESTS } from "../../packages/module-catalog/src";
 import { addMember, createOrg, createTestPlatform, expectCode, meta } from "../helpers/platform";
 
 const testModule: ModuleManifest = {
