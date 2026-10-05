@@ -53,7 +53,8 @@ export const restApiAdapter: ConnectorAdapter = {
     for (const [k, v] of Object.entries(query)) if (v !== undefined && v !== null) target.searchParams.set(k, String(v));
     const res = await ctx.fetch(target.toString(), {
       method,
-      headers: { accept: "application/json", ...(req.params.body !== undefined ? { "content-type": "application/json" } : {}), ...authHeaders(ctx, cfg) },
+      // Caller headers first; JSON + auth headers always win, so credentials come only from the connector.
+      headers: { ...callerHeaders(req.params.headers), accept: "application/json", ...(req.params.body !== undefined ? { "content-type": "application/json" } : {}), ...authHeaders(ctx, cfg) },
       body: req.params.body !== undefined ? JSON.stringify(req.params.body) : undefined,
     });
     const err = classifyStatus(res.status, res.headers.get("retry-after"));
@@ -76,3 +77,16 @@ export const restApiAdapter: ConnectorAdapter = {
     return { values: { ...c, accessToken: tok.access_token }, expiresAt: tok.expires_in ? new Date(Date.now() + tok.expires_in * 1000) : undefined };
   },
 };
+
+const BLOCKED_HEADER = /^(authorization|cookie|host|content-length|connection|proxy-.*|x-forwarded-.*|transfer-encoding|te|upgrade)$/i;
+
+/** Optional request headers from the caller (e.g. Idempotency-Key, X-Request-Source). Credentials and hop-by-hop headers are dropped. */
+export function callerHeaders(raw: unknown): Record<string, string> {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
+    if (!/^[A-Za-z0-9-]{1,64}$/.test(k) || BLOCKED_HEADER.test(k) || typeof v !== "string" || v.length > 1000 || /[\r\n]/.test(v)) continue;
+    out[k] = v;
+  }
+  return out;
+}

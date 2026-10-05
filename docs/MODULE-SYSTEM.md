@@ -4,7 +4,7 @@ The platform is one shared core plus six modular applications. A module is a wor
 
 ## The six modules
 
-**AI Workflow Intelligence is installed** (`installStatus: "installed"`, v1.0.0 — see [modules/WORKFLOW-INTELLIGENCE.md](modules/WORKFLOW-INTELLIGENCE.md)). The other five are placeholders (`installStatus: "not_installed"`, `version: "0.0.0"`). Placeholders reserve identity, route prefix, permission keys, navigation and event names (`RESERVED_EVENT_TYPES` in each `src/index.ts`). They appear in `GET /api/v1/modules` and in navigation with `state: "not_installed"`, report health `not_configured` ("Module not yet installed"), and `enable` returns `CONFLICT` ("… is not installed on this platform yet.").
+**Installed:** AI Workflow Intelligence ([modules/WORKFLOW-INTELLIGENCE.md](modules/WORKFLOW-INTELLIGENCE.md)) and Enterprise AI Integration ([modules/INTEGRATION.md](modules/INTEGRATION.md)), both v1.0.0. The other four are placeholders (`installStatus: "not_installed"`, `version: "0.0.0"`). Placeholders reserve identity, route prefix, permission keys, navigation and event names (`RESERVED_EVENT_TYPES` in each `src/index.ts`). They appear in `GET /api/v1/modules` and in navigation with `state: "not_installed"`, report health `not_configured` ("Module not yet installed"), and `enable` returns `CONFLICT` ("… is not installed on this platform yet.").
 
 | Id | Package dir | Name | `basePath` | Entry permission | Reserved permissions |
 |---|---|---|---|---|---|
@@ -118,6 +118,8 @@ Rules learned building it:
 - Add the package to `apps/web/next.config.ts` `transpilePackages` and to the app's `package.json`.
 - Client components may import **types only** from a module package (it pulls in `pg`); share formatting helpers in a `"use client"` file.
 - One transaction is one connection: run queries sequentially (no `Promise.all` on `tx`).
+- Background work goes through `platform.jobs` (register handlers in `install`); cross-module reactions through `platform.events.bus.subscribe` (Integration's event triggers subscribe to `"*"`).
+- Policy-gated modules register a policy kind (`policyKinds`) and call `platform.policies.evaluateKind` before acting; reuse `platform.policyEngine` for any other rule evaluation instead of writing an evaluator.
 - Render anything locale/timezone/ICU-dependent identically on server and client (e.g. a mount-gated `LocalDate`, explicit `Intl` fraction digits) or hydration fails in production.
 
 The existing RLS assertions in `tests/integration/tenant-isolation.test.ts` ("every table with organization_id has RLS enabled AND forced", "A's scope sees zero rows owned by B in every tenant table") automatically cover module tables because module migrations are applied in tests.

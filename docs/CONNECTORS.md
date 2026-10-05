@@ -44,7 +44,7 @@ Adapters must use `ctx.fetch` (the guarded fetch) and throw `ConnectorError` (or
 
 | Type | Name | Availability | Auth types | Capabilities |
 |---|---|---|---|---|
-| `rest_api` | REST API | **available** | api_key, basic, oauth2 (client credentials), none | `http.request` (read/write/delete) |
+| `rest_api` | REST API | **available** | api_key, basic, oauth2 (client credentials), none | `http.request` (read/write/delete; optional `headers` param — `Authorization`, cookies, host and hop-by-hop headers are dropped, connector auth always wins) |
 | `graphql` | GraphQL API | **available** | api_key, none | `graphql.query`, `graphql.mutation` |
 | `outbound_webhook` | Outbound Webhook | **available** | api_key (signing secret), none | `webhook.send` |
 | `sandbox` | Sandbox (simulated) | sandbox — excluded when `APP_ENV=production` | api_key, none | `records.list`, `records.write`, `simulate.failure` |
