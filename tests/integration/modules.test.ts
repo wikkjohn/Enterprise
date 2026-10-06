@@ -25,8 +25,8 @@ describe("module registry and entitlements", () => {
   it("lists all six modules; placeholders are not installed and cannot be enabled", async () => {
     const list = await p.modules.list(O.adminCtx());
     expect(list).toHaveLength(6);
-    expect(list.find((m) => m.id === "knowledge_verification")).toMatchObject({ installStatus: "not_installed", enabled: false });
-    await expectCode(p.modules.enable(O.adminCtx(), "knowledge_verification"), "CONFLICT");
+    expect(list.find((m) => m.id === "ai_operations")).toMatchObject({ installStatus: "not_installed", enabled: false });
+    await expectCode(p.modules.enable(O.adminCtx(), "ai_operations"), "CONFLICT");
   });
 
   it("navigation reflects entitlements and permissions", async () => {

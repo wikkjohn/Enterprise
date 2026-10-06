@@ -20,6 +20,7 @@
     "@eaop/module-catalog": "workspace:*",
     "@eaop/module-agent-governance": "workspace:*",
     "@eaop/module-data-security": "workspace:*",
+    "@eaop/module-knowledge-verification": "workspace:*",
     "@eaop/module-integration-hub": "workspace:*",
     "@eaop/module-registry": "workspace:*",
     "@eaop/module-workflow-intelligence": "workspace:*",
