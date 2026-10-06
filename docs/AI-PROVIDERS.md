@@ -107,14 +107,14 @@ HTTP: `POST /api/v1/ai/execute` (`auth: "any"`, `ai.use`, status 200).
 ### Policy hooks (DLP extension)
 
 ```ts
-platform.ai.registerPolicyHook("data_security.dlp", async ({ organizationId, moduleId, useCase, dataClassification, model, request }) => {
+platform.ai.registerPolicyHook("data_security.dlp", async ({ organizationId, actor, moduleId, useCase, dataClassification, model, request }) => {
   const masked = request.messages.map((m) => ({ ...m, content: m.content.replace(/\b\d{3}-\d{2}-\d{4}\b/g, "[SSN]") }));
   return { decision: "REDACT", reasons: ["masked SSN"], request: { ...request, messages: masked } };
   // or { decision: "DENY" | "REQUIRE_APPROVAL" | "ESCALATE" | "ALLOW", reasons }
 });
 ```
 
-Hook names must be unique. Reasons are prefixed with `[<hook name>]` in the run record.
+Hook names must be unique. Reasons are prefixed with `[<hook name>]` in the run record. `actor` is the caller (`{ type, id, label }`). A hook that returns `DENY` / `REQUIRE_APPROVAL` / `ESCALATE` may also return a sanitized `request`; it is what the run log persists (under `full` retention) instead of the original, so a blocked prompt's secrets are never stored. AI Data Security registers the `data_security` hook — see [modules/DATA-SECURITY.md](modules/DATA-SECURITY.md).
 
 ### `ai_usage` policy kind
 

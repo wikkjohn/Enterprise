@@ -126,6 +126,7 @@ export const SANDBOX_DEFINITION: ConnectorDefinition = {
   capabilities: [
     cap("records.list", "List synthetic records.", ["list", "read"], "low"),
     cap("records.write", "Write a synthetic record (in memory).", ["write"], "medium"),
+    cap("files.list", "List synthetic files with permissions and content samples (for data discovery).", ["list", "read"], "low"),
     cap("simulate.failure", "Simulate transient / auth / rate-limit failures.", ["execute"], "low"),
   ],
   configSchema: z.object({ label: z.string().max(100).default("sandbox") }),

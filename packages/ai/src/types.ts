@@ -57,10 +57,13 @@ export interface PromptTemplateRef {
 export interface AIPolicyHookResult {
   decision: PolicyEffect | "REDACT";
   reasons?: string[];
+  /** REDACT: the request to send instead. DENY / REQUIRE_APPROVAL: a sanitized copy to persist in the run log instead of the original. */
   request?: { system?: string; messages: AIMessage[] };
 }
 export type AIPolicyHook = (input: {
   organizationId: string;
+  /** Who is calling (for attribution, approvals and incidents). */
+  actor: { type: string; id: string; label: string };
   moduleId: string;
   useCase: string;
   dataClassification: DataClassification;
