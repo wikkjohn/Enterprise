@@ -1,6 +1,6 @@
 # Enterprise AI Operating Platform
 
-A multi-tenant **shared enterprise core** (identity, organizations, RBAC, audit, connectors, AI provider layer, policies, events/jobs, notifications, usage, search, observability) plus **six modular applications** that plug into it through a declarative manifest. **AI Workflow Intelligence** ([docs/modules/WORKFLOW-INTELLIGENCE.md](docs/modules/WORKFLOW-INTELLIGENCE.md)), **Enterprise AI Integration** ([docs/modules/INTEGRATION.md](docs/modules/INTEGRATION.md)) **AI Agent Governance** ([docs/modules/AGENT-GOVERNANCE.md](docs/modules/AGENT-GOVERNANCE.md)) and **AI Data Security** ([docs/modules/DATA-SECURITY.md](docs/modules/DATA-SECURITY.md)) are installed; the other two modules are reserved placeholders (`installStatus: "not_installed"`). The shared core and its HTTP API are implemented and tested.
+A multi-tenant **shared enterprise core** (identity, organizations, RBAC, audit, connectors, AI provider layer, policies, events/jobs, notifications, usage, search, observability) plus **six modular applications** that plug into it through a declarative manifest. **AI Workflow Intelligence** ([docs/modules/WORKFLOW-INTELLIGENCE.md](docs/modules/WORKFLOW-INTELLIGENCE.md)), **Enterprise AI Integration** ([docs/modules/INTEGRATION.md](docs/modules/INTEGRATION.md)), **AI Agent Governance** ([docs/modules/AGENT-GOVERNANCE.md](docs/modules/AGENT-GOVERNANCE.md)), **AI Data Security** ([docs/modules/DATA-SECURITY.md](docs/modules/DATA-SECURITY.md)) and **AI Knowledge & Verification** ([docs/modules/KNOWLEDGE-VERIFICATION.md](docs/modules/KNOWLEDGE-VERIFICATION.md)) are installed; the remaining module is a reserved placeholder (`installStatus: "not_installed"`). The shared core and its HTTP API are implemented and tested.
 
 This repository is a self-contained pnpm monorepo. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#repository-assessment) for its origin and current status.
 
@@ -129,7 +129,7 @@ The shell (`apps/web/src/components/app-shell.tsx`) renders module navigation fr
 | `packages/platform` | `createPlatform()` composition root, env config, health, error reporter, retention |
 | `packages/api` | Framework-agnostic HTTP kit: `createRouteFactory()` / envelopes |
 | `packages/design-system` | Tailwind v4 tokens + accessible React components |
-| `modules/*` | Module packages: `workflow-intelligence` and `integration-hub` (installed), four placeholder manifests |
+| `modules/*` | Module packages: `workflow-intelligence`, `integration-hub`, `agent-governance`, `data-security` and `knowledge-verification` (installed), one placeholder manifest (`ai-operations`) |
 | `packages/module-catalog` | `MODULE_DEFINITIONS` — the modules apps install |
 | `tests/` | `unit/`, `integration/`, `helpers/` |
 | `scripts/` | `seed.ts`, `create-platform-admin.ts` |
@@ -163,7 +163,8 @@ The shell (`apps/web/src/components/app-shell.tsx`) renders module navigation fr
 | Enterprise AI Integration | Implemented | Live runs against Salesforce, ServiceNow, SAP, Microsoft 365 etc. need those connector adapters (contract-only today; test mode dry-runs them). REST/GraphQL/webhook connectors work live |
 | AI Agent Governance | Implemented | Enforcement is cooperative: agents are governed through the runtime API and Integration's gateway; external OAuth/certificate identities are recorded but not yet used for authentication |
 | AI Data Security | Implemented | Discovery adapters: sandbox (simulated) and custom REST APIs; Microsoft 365, Google, Box, Dropbox, Slack, Salesforce etc. push inventory through the ingestion API until their adapters ship. Shadow AI needs a telemetry integration (proxy/CASB/SSO logs) to see employee AI use |
-| Other two modules | Placeholders | Catalog shows "not installed"; cannot be enabled |
+| AI Knowledge & Verification | Implemented | Full-text retrieval (no vector provider ships yet); no OCR for scanned PDFs; connector sync for sandbox (simulated) and REST connectors — other sources push documents through the API. Without a real AI provider, answers are extractive (quoted, labelled) |
+| AI Operations Management | Placeholder | Catalog shows "not installed"; cannot be enabled |
 
 No compliance certification is claimed. See [docs/SECURITY.md](docs/SECURITY.md).
 

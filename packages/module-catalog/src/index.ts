@@ -2,7 +2,7 @@ import { agentGovernance } from "@eaop/module-agent-governance";
 import { manifest as aiOperations } from "@eaop/module-ai-operations";
 import { dataSecurity } from "@eaop/module-data-security";
 import { integrationHub } from "@eaop/module-integration-hub";
-import { manifest as knowledgeVerification } from "@eaop/module-knowledge-verification";
+import { knowledgeVerification } from "@eaop/module-knowledge-verification";
 import { type ModuleManifest } from "@eaop/module-registry";
 import { workflowIntelligence } from "@eaop/module-workflow-intelligence";
 import { type ModuleDefinition } from "@eaop/platform";
@@ -17,7 +17,7 @@ export const MODULE_DEFINITIONS: ModuleDefinition[] = [
   integrationHub,
   agentGovernance,
   dataSecurity,
-  { manifest: knowledgeVerification },
+  knowledgeVerification,
   { manifest: aiOperations },
 ];
 

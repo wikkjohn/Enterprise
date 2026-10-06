@@ -46,6 +46,8 @@ export interface RouteOptions<BS extends z.ZodTypeAny | undefined, QS extends z.
   /** Allowed while the org requires MFA and the user has not enrolled yet. */
   allowDuringMfaEnrollment?: boolean;
   status?: number;
+  /** Override the 2 MB request body limit (e.g. document uploads). Capped at 32 MB. */
+  maxBodyBytes?: number;
   handler(args: RouteArgs<BS extends z.ZodTypeAny ? z.infer<BS> : undefined, QS extends z.ZodTypeAny ? z.infer<QS> : undefined>): Promise<unknown>;
 }
 
@@ -140,7 +142,7 @@ export function createRouteFactory(getPlatform: () => Platform | Promise<Platfor
           let body: unknown = undefined;
           if (opts.body) {
             rawBody = await req.text();
-            if (rawBody.length > MAX_BODY_BYTES) throw new AppError("VALIDATION_FAILED", "Request body too large.");
+            if (rawBody.length > Math.min(opts.maxBodyBytes ?? MAX_BODY_BYTES, 32 * 1024 * 1024)) throw new AppError("VALIDATION_FAILED", "Request body too large.");
             if (rawBody && !(req.headers.get("content-type") ?? "").includes("application/json")) throw new AppError("VALIDATION_FAILED", "Content-Type must be application/json.");
             let parsed: unknown = {};
             try {
