@@ -22,7 +22,7 @@ import { actionFor, decideDlp, DEFAULT_ACTIONS, DLP_DECISIONS, fromPolicyEffect,
 import { redact, REDACTION_MODES, safePreview } from "./redact";
 import {
   accessFindings, classificationRules, dataAssets, dataAssetVersions, dataClassifications, dataScans, dlpEvents, dsSettings, exposureFindings, incidentEvents, INCIDENT_KINDS,
-  redactionEvents, remediationActions, REMEDIATION_ACTIONS, securityIncidents, shadowAiTools, shadowAiUsage, type DetectionSummary, type IncidentKind, type RemediationAction,
+  redactionEvents, remediationActions, securityIncidents, shadowAiTools, shadowAiUsage, type DetectionSummary, type IncidentKind, type RemediationAction,
 } from "./schema";
 import { AI_TOOL_CATALOG, matchCatalog, normalizeDomain, TOOL_CATEGORIES, TOOL_STATUSES, toolRisk, type ToolStatus } from "./shadow";
 

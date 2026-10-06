@@ -256,7 +256,7 @@ const SPAN_DETECTORS: SpanDetector[] = [
   },
   {
     detector: "date_of_birth", category: "pii", label: "DOB",
-    re: /\b(?:dob|d\.o\.b\.|date of birth|birth ?date|born(?: on)?)\s*[:\-]?\s*(\d{1,4}[/.-]\d{1,2}[/.-]\d{1,4})/gi,
+    re: /\b(?:dob|d\.o\.b\.|date of birth|birth ?date|born(?: on)?)\s*[:-]?\s*(\d{1,4}[/.-]\d{1,2}[/.-]\d{1,4})/gi,
     check: () => ({ confidence: "medium", basis: "Date next to a date-of-birth keyword", method: "keyword", group: 1 }),
   },
   {
