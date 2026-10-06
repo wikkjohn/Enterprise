@@ -272,7 +272,7 @@ export function createAIService(deps: {
       let request: { system?: string; messages: AIMessage[] } = { system: input.system, messages: input.messages };
       if (decision === "ALLOW") {
         for (const [name, hook] of hooks) {
-          const r = await hook({ organizationId: ctx.organizationId, moduleId: input.moduleId, useCase: input.useCase, dataClassification: input.dataClassification as DataClassification, model: { provider: chosen.providerKey, model: chosen.modelKey, tier: chosen.tier }, request });
+          const r = await hook({ organizationId: ctx.organizationId, actor: { type: ctx.actor.type, id: ctx.actor.id, label: ctx.actor.label }, moduleId: input.moduleId, useCase: input.useCase, dataClassification: input.dataClassification as DataClassification, model: { provider: chosen.providerKey, model: chosen.modelKey, tier: chosen.tier }, request });
           reasons.push(...(r.reasons ?? []).map((x) => `[${name}] ${x}`));
           if (r.decision === "REDACT" && r.request) {
             request = r.request;

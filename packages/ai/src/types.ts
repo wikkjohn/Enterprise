@@ -61,6 +61,8 @@ export interface AIPolicyHookResult {
 }
 export type AIPolicyHook = (input: {
   organizationId: string;
+  /** Who is calling (for attribution, approvals and incidents). */
+  actor: { type: string; id: string; label: string };
   moduleId: string;
   useCase: string;
   dataClassification: DataClassification;
