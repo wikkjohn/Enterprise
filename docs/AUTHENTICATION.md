@@ -98,6 +98,7 @@ Acceptance (`POST /auth/invitations/:token { name, password }`): an existing acc
 | Use | `Authorization: Bearer eaop_...` on routes declared `auth: "any"`. Session-only routes reject keys |
 | Authenticate | Prefix lookup, constant-time hash compare; rejected if revoked, expired or the org is not `active`; `last_used_at` touched at most once per minute |
 | Permissions | Actor type `api_key` with `scopes`; authorizer grants exactly the registered scopes; module-owned scopes still require the module to be enabled |
+| Agent keys | A module may bind keys to another actor type with `apiKeys.registerActorBinder`. Agent Governance turns keys issued to an agent into `agent` actors (permissions = key scopes while the agent is approved); a key whose agent identity is revoked fails authentication |
 | Metering | Each request records `api.requests` usage with a normalized `endpoint` |
 | Events/audit | `api_key.created` / `api_key.revoked` (not delivered to webhooks); audit `api_key.created` / `api_key.revoked` |
 

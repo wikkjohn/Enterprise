@@ -148,6 +148,7 @@ export interface AgentView {
   lastActivityAt: string | null;
   lastReviewAt: string | null;
   approvedAt: string | null;
+  createdBy: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -165,7 +166,7 @@ const agentView = (a: AgentRow, ownerName: string | null = null): AgentView => (
   id: a.id, name: a.name, description: a.description, externalId: a.externalId, ownerUserId: a.ownerUserId, ownerName, department: a.department, businessPurpose: a.businessPurpose,
   environment: a.environment, status: a.status, quarantined: a.quarantined, provider: a.provider, model: a.model, autonomyLevel: a.autonomyLevel, riskCategory: a.riskCategory,
   connectedSystems: a.connectedSystems, blockedConnectorIds: a.blockedConnectorIds, customerImpact: a.customerImpact, regulatoryImpact: a.regulatoryImpact, discoveredVia: a.discoveredVia,
-  currentVersion: a.currentVersion, lastActivityAt: iso(a.lastActivityAt), lastReviewAt: iso(a.lastReviewAt), approvedAt: iso(a.approvedAt), createdAt: a.createdAt.toISOString(), updatedAt: a.updatedAt.toISOString(),
+  currentVersion: a.currentVersion, lastActivityAt: iso(a.lastActivityAt), lastReviewAt: iso(a.lastReviewAt), approvedAt: iso(a.approvedAt), createdBy: a.createdBy, createdAt: a.createdAt.toISOString(), updatedAt: a.updatedAt.toISOString(),
 });
 
 export const bindingView = (b: BindingRow) => ({
@@ -912,7 +913,7 @@ export function createAgentGovernanceService(deps: AgentGovernanceDeps) {
     },
 
     async listActivity(ctx: TenantContext, q: { agentId?: string; kind?: string; decision?: string; limit?: number } = {}) {
-      await authorizer.require(ctx, "agent.audit.read");
+      await authorizer.require(ctx, "agent.action.read");
       return tenant(ctx, async (tx) => {
         const rows = await tx.select({ a: agentActions, name: agents.name }).from(agentActions).innerJoin(agents, eq(agents.id, agentActions.agentId)).where(and(eq(agentActions.organizationId, org(ctx)), q.agentId && isUuid(q.agentId) ? eq(agentActions.agentId, q.agentId) : undefined, q.kind ? eq(agentActions.kind, q.kind as ActivityKind) : undefined, q.decision ? eq(agentActions.decision, q.decision) : undefined)).orderBy(desc(agentActions.occurredAt)).limit(Math.min(500, q.limit ?? 200));
         return rows.map(({ a, name }) => ({ ...activityView(a), agentName: name }));

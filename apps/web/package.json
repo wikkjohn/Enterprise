@@ -18,6 +18,7 @@
     "@eaop/design-system": "workspace:*",
     "@eaop/events": "workspace:*",
     "@eaop/module-catalog": "workspace:*",
+    "@eaop/module-agent-governance": "workspace:*",
     "@eaop/module-integration-hub": "workspace:*",
     "@eaop/module-registry": "workspace:*",
     "@eaop/module-workflow-intelligence": "workspace:*",

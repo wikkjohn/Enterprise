@@ -78,6 +78,9 @@ importers:
       '@eaop/events':
         specifier: workspace:*
         version: link:../../packages/events
+      '@eaop/module-agent-governance':
+        specifier: workspace:*
+        version: link:../../modules/agent-governance
       '@eaop/module-catalog':
         specifier: workspace:*
         version: link:../../packages/module-catalog

@@ -1,6 +1,6 @@
 # Enterprise AI Operating Platform
 
-A multi-tenant **shared enterprise core** (identity, organizations, RBAC, audit, connectors, AI provider layer, policies, events/jobs, notifications, usage, search, observability) plus **six modular applications** that plug into it through a declarative manifest. **AI Workflow Intelligence** ([docs/modules/WORKFLOW-INTELLIGENCE.md](docs/modules/WORKFLOW-INTELLIGENCE.md)) and **Enterprise AI Integration** ([docs/modules/INTEGRATION.md](docs/modules/INTEGRATION.md)) are installed; the other four modules are reserved placeholders (`installStatus: "not_installed"`). The shared core and its HTTP API are implemented and tested.
+A multi-tenant **shared enterprise core** (identity, organizations, RBAC, audit, connectors, AI provider layer, policies, events/jobs, notifications, usage, search, observability) plus **six modular applications** that plug into it through a declarative manifest. **AI Workflow Intelligence** ([docs/modules/WORKFLOW-INTELLIGENCE.md](docs/modules/WORKFLOW-INTELLIGENCE.md)), **Enterprise AI Integration** ([docs/modules/INTEGRATION.md](docs/modules/INTEGRATION.md)) and **AI Agent Governance** ([docs/modules/AGENT-GOVERNANCE.md](docs/modules/AGENT-GOVERNANCE.md)) are installed; the other three modules are reserved placeholders (`installStatus: "not_installed"`). The shared core and its HTTP API are implemented and tested.
 
 This repository is a self-contained pnpm monorepo. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#repository-assessment) for its origin and current status.
 
@@ -26,7 +26,7 @@ This repository is a self-contained pnpm monorepo. See [docs/ARCHITECTURE.md](do
         ┌──────────────────────┐                        workflow-intelligence,
         │ PostgreSQL 16        │◀── apps/worker          integration-hub, agent-governance,
         │ RLS on every tenant  │    (jobs, event outbox, data-security, knowledge-verification,
-        │ table; append-only   │     health sweep,       ai-operations  (WI + Integration installed)
+        │ table; append-only   │     health sweep,       ai-operations  (WI, Integration, Agent Gov.)
         │ audit; job queue;    │     retention)
         │ event outbox         │
         └──────────────────────┘
@@ -161,7 +161,8 @@ The shell (`apps/web/src/components/app-shell.tsx`) renders module navigation fr
 | Web UI | Implemented | Sign-in/MFA/invitation/reset flows, app shell, admin console, platform console — see below |
 | AI Workflow Intelligence | Implemented | Enable per org under Administration → Modules; AI redesign needs a real AI provider |
 | Enterprise AI Integration | Implemented | Live runs against Salesforce, ServiceNow, SAP, Microsoft 365 etc. need those connector adapters (contract-only today; test mode dry-runs them). REST/GraphQL/webhook connectors work live |
-| Other four modules | Placeholders | Catalog shows "not installed"; cannot be enabled |
+| AI Agent Governance | Implemented | Enforcement is cooperative: agents are governed through the runtime API and Integration's gateway; external OAuth/certificate identities are recorded but not yet used for authentication |
+| Other three modules | Placeholders | Catalog shows "not installed"; cannot be enabled |
 
 No compliance certification is claimed. See [docs/SECURITY.md](docs/SECURITY.md).
 
