@@ -1,5 +1,5 @@
 import { agentGovernance } from "@eaop/module-agent-governance";
-import { manifest as aiOperations } from "@eaop/module-ai-operations";
+import { aiOperations } from "@eaop/module-ai-operations";
 import { dataSecurity } from "@eaop/module-data-security";
 import { integrationHub } from "@eaop/module-integration-hub";
 import { knowledgeVerification } from "@eaop/module-knowledge-verification";
@@ -18,7 +18,7 @@ export const MODULE_DEFINITIONS: ModuleDefinition[] = [
   agentGovernance,
   dataSecurity,
   knowledgeVerification,
-  { manifest: aiOperations },
+  aiOperations,
 ];
 
 export const MODULE_MANIFESTS: ModuleManifest[] = MODULE_DEFINITIONS.map((d) => d.manifest);

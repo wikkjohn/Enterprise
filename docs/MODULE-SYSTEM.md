@@ -4,7 +4,7 @@ The platform is one shared core plus six modular applications. A module is a wor
 
 ## The six modules
 
-**Installed:** AI Workflow Intelligence ([modules/WORKFLOW-INTELLIGENCE.md](modules/WORKFLOW-INTELLIGENCE.md)), Enterprise AI Integration ([modules/INTEGRATION.md](modules/INTEGRATION.md)), AI Agent Governance ([modules/AGENT-GOVERNANCE.md](modules/AGENT-GOVERNANCE.md)), AI Data Security ([modules/DATA-SECURITY.md](modules/DATA-SECURITY.md)) and AI Knowledge & Verification ([modules/KNOWLEDGE-VERIFICATION.md](modules/KNOWLEDGE-VERIFICATION.md)), all v1.0.0. The remaining one (AI Operations) is a placeholder (`installStatus: "not_installed"`, `version: "0.0.0"`). Placeholders reserve identity, route prefix, permission keys, navigation and event names (`RESERVED_EVENT_TYPES` in each `src/index.ts`). They appear in `GET /api/v1/modules` and in navigation with `state: "not_installed"`, report health `not_configured` ("Module not yet installed"), and `enable` returns `CONFLICT` ("… is not installed on this platform yet.").
+**Installed:** AI Workflow Intelligence ([modules/WORKFLOW-INTELLIGENCE.md](modules/WORKFLOW-INTELLIGENCE.md)), Enterprise AI Integration ([modules/INTEGRATION.md](modules/INTEGRATION.md)), AI Agent Governance ([modules/AGENT-GOVERNANCE.md](modules/AGENT-GOVERNANCE.md)), AI Data Security ([modules/DATA-SECURITY.md](modules/DATA-SECURITY.md)), AI Knowledge & Verification ([modules/KNOWLEDGE-VERIFICATION.md](modules/KNOWLEDGE-VERIFICATION.md)) and AI Operations Management ([modules/AI-OPERATIONS.md](modules/AI-OPERATIONS.md)), all v1.0.0. The placeholder mechanism remains for future modules: a manifest with `installStatus: "not_installed"` reserves identity, route prefix, permission keys, navigation and event names; it appears in `GET /api/v1/modules` and navigation with `state: "not_installed"`, reports health `not_configured` ("Module not yet installed"), and `enable` returns `CONFLICT` ("… is not installed on this platform yet.").
 
 | Id | Package dir | Name | `basePath` | Entry permission | Reserved permissions |
 |---|---|---|---|---|---|
@@ -64,6 +64,14 @@ for (const { manifest: m } of definitions) {
 After every core service exists, `install(platform)` runs for each installed module. That is where a module constructs its services from the shared core (db, authorizer, audit, bus, notifications, ai, connectors, jobs, …), registers search providers / job handlers / event subscribers / AI policy hooks, and publishes its service in `platform.moduleServices` (keyed by module id) for the web and worker apps. Placeholders are bare manifests.
 
 `bootstrap()` then upserts the `permissions` table, recomputes system-role permission sets including `roleGrants`, and upserts the `modules` table.
+
+### Cross-module analytics (`platform.insights`)
+
+A module may register one **insight provider** in its install hook: `platform.insights.register({ moduleId, label, collect(ctx) })`. `collect` returns a handful of aggregate metrics about the module's own domain (`{ key, label, value, unit: "count" | "usd" | "usd_per_year" | "percent", basis: "measured" | "estimated", href }`) — never names, content or per-person data. `platform.insights.collect(ctx)` returns the summaries of every provider whose module is enabled for the tenant; a failing provider is reported as unavailable without hiding the others. AI Operations Management builds its cross-module view on this instead of reading other modules' tables. All five other modules register a provider (`src/insights.ts`).
+
+### AI routing policies
+
+`platform.ai.registerRoutingPolicy(name, fn)` lets a module filter and reorder the candidate models for a request before the shared AI layer executes it. Policies may be async. AI Operations uses it to apply organization model-selection policies.
 
 ### Entitlements, feature flags and navigation
 

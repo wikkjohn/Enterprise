@@ -10,13 +10,15 @@ const installed: ModuleManifest = {
   version: "0.0.1-test",
   featureFlags: [{ key: "integration.visual_editor", description: "Visual editor", defaultEnabled: false }],
 };
+// Every catalog module is installed now; placeholder behaviour is exercised with a synthetic not-installed manifest.
+const placeholder: ModuleManifest = { ...MODULE_MANIFESTS.find((m) => m.id === "ai_operations")!, installStatus: "not_installed", version: "0.0.0" };
 const dependent: ModuleManifest = { ...MODULE_MANIFESTS.find((m) => m.id === "agent_governance")!, installStatus: "installed", dependsOn: ["integration_hub"] };
 
 let p: Platform;
 let O: Awaited<ReturnType<typeof createOrg>>;
 
 beforeAll(async () => {
-  p = await createTestPlatform({ modules: [installed, dependent, ...MODULE_MANIFESTS.filter((m) => !["integration_hub", "agent_governance"].includes(m.id))] });
+  p = await createTestPlatform({ modules: [installed, dependent, placeholder, ...MODULE_MANIFESTS.filter((m) => !["integration_hub", "agent_governance", "ai_operations"].includes(m.id))] });
   O = await createOrg(p);
 });
 afterAll(() => p.close());

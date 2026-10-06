@@ -3,6 +3,7 @@ import { type ModuleManifest } from "@eaop/module-registry";
 import { type ModuleDefinition, type Platform } from "@eaop/platform";
 import { textScore } from "@eaop/search";
 import { createWorkflowService, MODULE_ID, workflowSearch, type WorkflowService } from "./service";
+import { workflowInsights } from "./insights";
 
 export * from "./service";
 export * from "./roi";
@@ -84,6 +85,7 @@ export const workflowIntelligence: ModuleDefinition = {
       connectors: platform.connectors,
     });
     platform.moduleServices.set(MODULE_ID, service);
+    platform.insights.register(workflowInsights(platform));
     const search = workflowSearch(platform.db);
     platform.search.register({
       resourceType: "workflow",

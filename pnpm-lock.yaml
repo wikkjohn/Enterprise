@@ -81,6 +81,9 @@ importers:
       '@eaop/module-agent-governance':
         specifier: workspace:*
         version: link:../../modules/agent-governance
+      '@eaop/module-ai-operations':
+        specifier: workspace:*
+        version: link:../../modules/ai-operations
       '@eaop/module-catalog':
         specifier: workspace:*
         version: link:../../packages/module-catalog
@@ -232,12 +235,48 @@ importers:
 
   modules/ai-operations:
     dependencies:
+      '@eaop/ai':
+        specifier: workspace:*
+        version: link:../../packages/ai
+      '@eaop/audit':
+        specifier: workspace:*
+        version: link:../../packages/audit
+      '@eaop/db':
+        specifier: workspace:*
+        version: link:../../packages/db
+      '@eaop/events':
+        specifier: workspace:*
+        version: link:../../packages/events
+      '@eaop/jobs':
+        specifier: workspace:*
+        version: link:../../packages/jobs
       '@eaop/module-registry':
         specifier: workspace:*
         version: link:../../packages/module-registry
+      '@eaop/notifications':
+        specifier: workspace:*
+        version: link:../../packages/notifications
+      '@eaop/observability':
+        specifier: workspace:*
+        version: link:../../packages/observability
+      '@eaop/platform':
+        specifier: workspace:*
+        version: link:../../packages/platform
+      '@eaop/rbac':
+        specifier: workspace:*
+        version: link:../../packages/rbac
+      '@eaop/search':
+        specifier: workspace:*
+        version: link:../../packages/search
       '@eaop/shared-types':
         specifier: workspace:*
         version: link:../../packages/shared-types
+      drizzle-orm:
+        specifier: ^0.45.0
+        version: 0.45.3(@types/pg@8.23.1)(pg@8.23.1)
+      zod:
+        specifier: ^3.24.1
+        version: 3.25.76
 
   modules/data-security:
     dependencies:

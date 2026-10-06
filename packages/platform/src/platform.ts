@@ -25,6 +25,7 @@ import { isModuleId } from "@eaop/shared-types";
 import { type PlatformEnv } from "./config";
 import { createErrorReporter, type ErrorReporter } from "./errors";
 import { createHealthService, type HealthService } from "./health";
+import { createInsightRegistry, type InsightRegistry } from "./insights";
 
 /**
  * A module as installed into the platform: its declarative manifest plus an
@@ -70,6 +71,8 @@ export interface Platform {
   health: HealthService;
   /** Services constructed by installed modules, keyed by module id. */
   moduleServices: Map<string, unknown>;
+  /** Cross-module analytics read models (aggregate summaries each module publishes about itself). */
+  insights: InsightRegistry;
   /** Sync code registrations (permissions, roles, modules, AI catalog) to the DB. Idempotent. */
   bootstrap(): Promise<void>;
   close(): Promise<void>;
@@ -243,6 +246,10 @@ export function createPlatform(env: PlatformEnv, o: PlatformOverrides = {}): Pla
     organizations, auth, sessions, apiKeys, sso,
     connectors: connectorService, connectorCatalog, ai, health,
     moduleServices: new Map(),
+    insights: createInsightRegistry({
+      isEnabled: (orgId, moduleId) => (isModuleId(moduleId) ? modules.isEnabled(orgId, moduleId) : Promise.resolve(false)),
+      onError: (moduleId, err) => logger.warn("insights.provider_failed", { moduleId, error: err instanceof Error ? err.message : String(err) }),
+    }),
     async bootstrap() {
       await roles.syncCatalog();
       await modules.syncCatalog();
