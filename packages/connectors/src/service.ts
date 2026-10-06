@@ -148,7 +148,11 @@ export function createConnectorService(deps: {
       lastHealthCheckAt: row.lastHealthCheckAt?.toISOString() ?? null,
       lastError: row.lastError,
       availability: def?.availability ?? "contract_only",
-      capabilities: caps.map((c) => ({ key: c.capability, operations: c.operations, enabled: c.enabled === "enabled" })),
+      // Capabilities added to a definition after the connector was created show as disabled until enabled.
+      capabilities: [
+        ...caps.map((c) => ({ key: c.capability, operations: c.operations, enabled: c.enabled === "enabled" })),
+        ...(def?.capabilities ?? []).filter((d) => !caps.some((c) => c.capability === d.key)).map((d) => ({ key: d.key, operations: d.operations, enabled: false })),
+      ],
       credential: cred
         ? { id: cred.id, kind: cred.kind, status: cred.status, hint: cred.hint, expiresAt: cred.expiresAt?.toISOString() ?? null, lastRotatedAt: cred.lastRotatedAt?.toISOString() ?? null, rotationIntervalDays: cred.rotationIntervalDays }
         : null,
@@ -286,10 +290,14 @@ export function createConnectorService(deps: {
           .returning();
         if (patch.capabilities) {
           for (const c of def.capabilities) {
-            await tx
+            const enabled = patch.capabilities.includes(c.key) ? ("enabled" as const) : ("disabled" as const);
+            const [hit] = await tx
               .update(connectorCapabilities)
-              .set({ enabled: patch.capabilities.includes(c.key) ? "enabled" : "disabled" })
-              .where(and(eq(connectorCapabilities.connectorId, id), eq(connectorCapabilities.capability, c.key)));
+              .set({ enabled })
+              .where(and(eq(connectorCapabilities.connectorId, id), eq(connectorCapabilities.capability, c.key)))
+              .returning({ id: connectorCapabilities.id });
+            // A capability added to the definition after this connector was created.
+            if (!hit) await tx.insert(connectorCapabilities).values({ organizationId: ctx.organizationId, connectorId: id, capability: c.key, operations: c.operations, enabled });
           }
         }
         const fields = Object.keys(patch);

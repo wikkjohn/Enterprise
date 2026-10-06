@@ -353,7 +353,7 @@ export function createDataSecurityService(deps: DataSecurityDeps) {
         if (row!.firstSeenAt.getTime() >= now.getTime() - 1000) opened++;
         if (f.recommendation && SEVERITY_RANK[f.severity] >= SEVERITY_RANK.medium) {
           const titles = { remove_broad_sharing: `Remove broad sharing on "${asset.name}"`, restrict_group: `Restrict access for ${f.principal ?? "a principal"} on "${asset.name}"`, assign_owner: `Assign an owner to "${asset.name}"` } as const;
-          await recommend(tx, orgId, { action: f.recommendation, title: titles[f.recommendation], detail: f.detail, dedupeKey: `access:${asset.id}:${f.kind}:${f.principal ?? ""}`, assetId: asset.id, findingType: "access", findingId: row!.id, params: f.principal ? { principal: f.principal } : {} });
+          await recommend(tx, orgId, { action: f.recommendation, title: titles[f.recommendation], detail: f.detail, dedupeKey: `access:${asset.id}:${f.recommendation}:${f.principal ?? ""}`, assetId: asset.id, findingType: "access", findingId: row!.id, params: f.principal ? { principal: f.principal } : {} });
         }
       }
       await tx.update(accessFindings).set({ status: "resolved", resolvedAt: now, resolutionNote: "No longer observed in the latest scan." })
@@ -520,7 +520,10 @@ export function createDataSecurityService(deps: DataSecurityDeps) {
       redactionInfo = { count, byLabel, modes: [...modes] };
     }
 
-    const retain = st.contentRetention === "redacted_preview" && (await organizations.settingsInternal(orgId)).dataRetention.aiPromptRetention !== "none";
+    // Label redaction only removes token-level values; whole-document sensitive content (payroll, health notes,
+    // source code…) would survive it, so no preview is kept for those.
+    const unredactable = summaries.filter((s) => s.confidence !== "low" && s.redactable < s.count).map((s) => s.category);
+    const retain = st.contentRetention === "redacted_preview" && !unredactable.length && (await organizations.settingsInternal(orgId)).dataRetention.aiPromptRetention !== "none";
     const detections: DetectionSummary[] = summaries.map((s) => ({ category: s.category, count: s.count, confidence: s.confidence, methods: s.methods, detectors: s.detectors, basis: s.basis }));
     const triggered = summaries.filter((s) => s.confidence !== "low").map((s) => s.category);
     const validAssets = input.assetIds?.length ? (await orgScope(orgId, (tx) => tx.select({ id: dataAssets.id, classification: dataAssets.classification }).from(dataAssets).where(and(eq(dataAssets.organizationId, orgId), inArray(dataAssets.id, input.assetIds!))))) : [];
@@ -532,7 +535,7 @@ export function createDataSecurityService(deps: DataSecurityDeps) {
       const [e] = await tx.insert(dlpEvents).values({
         organizationId: orgId, source: input.source, actorType: ctx.actor.type, actorId: ctx.actor.id, actorLabel: actorLabel.slice(0, 300), userId: uid, destination: dest.name, destinationTrust: dest.trust, destinationCategory: dest.category,
         toolId: dest.toolId, moduleId: input.moduleId ?? null, useCase: input.useCase ?? null, decision, reasons: reasons.slice(0, 30), detections, categories: triggered, policies: pol.policies,
-        contentFingerprint: fp, contentChars: chars, redactedPreview: retain ? safePreview(joined, all) : null, assetIds: validAssets.map((a) => a.id),
+        contentFingerprint: fp, contentChars: chars, redactedPreview: retain ? safePreview(joined, all) : unredactable.length ? `[Preview withheld: whole-document ${unredactable.join(", ")} content cannot be safely redacted.]` : null, assetIds: validAssets.map((a) => a.id),
         approvalStatus: decision === "REQUIRE_APPROVAL" ? "pending" : null, approvalExpiresAt: decision === "REQUIRE_APPROVAL" ? new Date(Date.now() + APPROVAL_REQUEST_DAYS * 86400_000) : null, approvedVia,
       }).returning();
       if (redactionInfo && redactedParts) {
@@ -736,7 +739,9 @@ export function createDataSecurityService(deps: DataSecurityDeps) {
         await orgScope(orgId, (tx) => tx.update(dataScans).set({ status: "succeeded", assetsSeen: seen, assetsClassified: classified, findingsOpened: opened, finishedAt: new Date() }).where(eq(dataScans.id, scanId)));
         await record(ctx, "data_security.scan_completed", "data_scan", scanId, { metadata: { connectorId: c.id, assets: seen, classified, findingsOpened: opened } });
       } catch (err) {
-        const message = isAppError(err) ? err.message : "The connector call failed. See connector health for details.";
+        const message = isAppError(err)
+          ? /Capability ".+" is not enabled/.test(err.message) ? `${err.message} Enable it under Administration → Connectors, then scan again.` : err.message
+          : "The connector call failed. See connector health for details.";
         await orgScope(orgId, (tx) => tx.update(dataScans).set({ status: "failed", errorMessage: message.slice(0, 500), finishedAt: new Date() }).where(eq(dataScans.id, scanId)));
         await record(ctx, "data_security.scan_failed", "data_scan", scanId, { outcome: "failure", metadata: { error: message.slice(0, 300) } });
         if (!isAppError(err)) logger.warn("data_security.scan_failed", { error: err instanceof Error ? err.message : String(err) });

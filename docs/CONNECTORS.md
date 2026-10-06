@@ -9,7 +9,7 @@ Connectors are the **only** path by which platform code (core or modules) calls 
 | **Definition** (`ConnectorDefinition`) | `catalog.ts` | Code-declared type: auth types, capabilities, config schema/fields, credential fields, default rate limit, optional OAuth endpoints, `urlConfigKeys`, `availability` |
 | **Adapter** (`ConnectorAdapter`) | `adapters/*.ts` | Implementation: `testConnection`, `execute`, optional `refreshCredentials` |
 | **Instance** | `connectors` table | A tenant's configured connection (non-secret `config`, `auth_type`, status, health, rate-limit override) |
-| **Capabilities** | `connector_capabilities` | Which declared capabilities/operations are enabled on the instance |
+| **Capabilities** | `connector_capabilities` | Which declared capabilities/operations are enabled on the instance. Capabilities added to a definition later appear on existing connectors as disabled; enabling them (`PATCH /connectors/:id { capabilities }`) creates the row |
 | **Credentials** | `connector_credentials_metadata` + secret store | Metadata in the DB; the JSON credential values live in the secret store under `secret_ref` |
 
 ### Definition contract
@@ -47,7 +47,7 @@ Adapters must use `ctx.fetch` (the guarded fetch) and throw `ConnectorError` (or
 | `rest_api` | REST API | **available** | api_key, basic, oauth2 (client credentials), none | `http.request` (read/write/delete; optional `headers` param — `Authorization`, cookies, host and hop-by-hop headers are dropped, connector auth always wins) |
 | `graphql` | GraphQL API | **available** | api_key, none | `graphql.query`, `graphql.mutation` |
 | `outbound_webhook` | Outbound Webhook | **available** | api_key (signing secret), none | `webhook.send` |
-| `sandbox` | Sandbox (simulated) | sandbox — excluded when `APP_ENV=production` | api_key, none | `records.list`, `records.write`, `simulate.failure` |
+| `sandbox` | Sandbox (simulated) | sandbox — excluded when `APP_ENV=production` | api_key, none | `records.list`, `records.write`, `simulate.failure`, `files.list` |
 | `microsoft_graph` | Microsoft 365 (Graph) — SharePoint, OneDrive, Teams, Outlook, Entra ID | contract_only | oauth2, service_account | `files.read`, `files.permissions.read`, `mail.read`, `mail.send`, `teams.messages.read`, `directory.read` |
 | `salesforce` | Salesforce | contract_only | oauth2 | `records.read`, `records.write` |
 | `servicenow` | ServiceNow | contract_only | oauth2, basic | `table.read`, `table.write` |
@@ -71,7 +71,7 @@ Available adapter notes:
 - **`rest_api`** — config `baseUrl` (SSRF-checked), `healthPath` (default `/`), `apiKeyHeader` (default `Authorization`), `apiKeyPrefix` (default `Bearer `), `tokenUrl`, `oauthScope`. `params.path` must be absolute, without `..` or `//`, and stay on the base URL's origin (`resolveUnder`). The HTTP method must match the operation (`GET`→read, `DELETE`→delete, others→write). Returns `{ status, body }`.
 - **`graphql`** — `graphql.query` refuses mutation documents and vice versa; GraphQL `errors` without `data` → permanent error. Test sends `{ __typename }`.
 - **`outbound_webhook`** — POSTs `params.payload`; with `api_key` auth, adds `x-eaop-signature: t=<unix>,v1=<HMAC-SHA256(apiKey, "<t>.<body>")>`. Test only validates the URL (SSRF/DNS) with an `OPTIONS` probe.
-- **`sandbox`** — returns synthetic records labelled `simulated: true`; `simulate.failure` with `params.kind` = `auth` / `rate_limited` / `permanent` / `transient`.
+- **`sandbox`** — returns synthetic records labelled `simulated: true`; `simulate.failure` with `params.kind` = `auth` / `rate_limited` / `permanent` / `transient`; `files.list` returns four synthetic files with permissions and content samples (fake SSNs, Luhn-valid test cards, AWS example keys) for data-discovery demos.
 
 ## Service API (`createConnectorService`)
 

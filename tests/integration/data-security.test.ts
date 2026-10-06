@@ -98,6 +98,8 @@ describe("AI DLP through the shared AI layer", () => {
     await expectCode(p.ai.execute(actor, ask(payroll)), "APPROVAL_REQUIRED");
     const [pending] = await svc.listDlpEvents(A.adminCtx(), { approval: "pending" });
     expect(pending!.categories).toContain("employee");
+    expect(pending!.redactedPreview).toMatch(/Preview withheld/);
+    expect(JSON.stringify(pending)).not.toContain("98000");
     await expectCode(svc.decideDlpApproval(analyst.ctx(), pending!.id, { decision: "approve" }), "FORBIDDEN"); // no permission
     await expectCode(svc.decideDlpApproval(requester.ctx(), pending!.id, { decision: "approve" }), "FORBIDDEN"); // own request
     await svc.decideDlpApproval(reviewer.ctx(), pending!.id, { decision: "approve", note: "Finance close" });
@@ -189,12 +191,29 @@ describe("Discovery, classification and permission analysis", () => {
     expect(detail.accessFindings.map((f) => f.kind)).toEqual(expect.arrayContaining(["organization_wide", "overly_broad_group", "departed_user", "sensitive_broad_access"]));
     expect(detail.classifications.find((c2) => c2.category === "employee")).toMatchObject({ confidence: "high", method: "heuristic" });
     expect(detail.remediation.every((r) => r.execution === "manual" || r.action === "assign_owner")).toBe(true);
+    // One recommendation per action and principal, even when several findings point to it.
+    const keys = detail.remediation.map((r) => `${r.action}:${String(r.params.principal ?? "")}`);
+    expect(new Set(keys).size).toBe(keys.length);
     // Rescan is idempotent: no duplicate assets or findings.
     await svc.startScan(A.adminCtx(), { connectorId: c.id });
     await drain();
     expect((await svc.listAssets(A.adminCtx(), { source: "sandbox" })).length).toBe(4);
     expect((await svc.getAsset(A.adminCtx(), payroll.id)).accessFindings.length).toBe(detail.accessFindings.length);
     expect(await rawRows(A.org.id)).not.toContain("234-56-7890");
+  });
+  it("connectors created before a capability existed can enable it, and the scan explains how", async () => {
+    const o = await createOrg(p);
+    await p.modules.enable(o.adminCtx(), "data_security");
+    const c = await p.connectors.create(o.adminCtx(), { type: "sandbox", name: uniq("old"), authType: "none", config: {} });
+    await p.db.withSystem("test", (tx) => tx.execute(sql`delete from connector_capabilities where connector_id = ${c.id} and capability = 'files.list'`));
+    expect((await p.connectors.get(o.adminCtx(), c.id)).capabilities.find((x) => x.key === "files.list")).toMatchObject({ enabled: false });
+    await svc.startScan(o.adminCtx(), { connectorId: c.id });
+    await drain();
+    expect((await svc.listScans(o.adminCtx()))[0]!.errorMessage).toMatch(/Administration → Connectors/);
+    await p.connectors.update(o.adminCtx(), c.id, { capabilities: ["records.list", "records.write", "simulate.failure", "files.list"] });
+    await svc.startScan(o.adminCtx(), { connectorId: c.id });
+    await drain();
+    expect((await svc.listScans(o.adminCtx()))[0]).toMatchObject({ status: "succeeded", assetsSeen: 4 });
   });
   it("contract-only connectors fail clearly and point to the ingestion API", async () => {
     const o = await createOrg(p);
