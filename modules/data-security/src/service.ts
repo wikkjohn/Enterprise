@@ -584,7 +584,9 @@ export function createDataSecurityService(deps: DataSecurityDeps) {
       await notifications.notify(ctx, { type: "data_security.dlp_approval", title: `AI data transfer needs approval: ${who} → ${dest.name}`, body: reasons.slice(0, 3).join(" "), actionUrl: `${BASE}/dlp?focus=${event.id}`, priority: "high", recipients: { permission: "data_security.policy.manage" } });
     }
     await usage.record(ctx, { moduleId: MODULE_ID, metric: "data_security.dlp_evaluations", unit: "evaluation", quantity: 1, dimensions: { decision, source: input.source } });
-    return { eventId: event.id, decision, reasons, categories: triggered, detections, redactedParts, redactedCount: redactionInfo?.count ?? 0, incidentId };
+    // For anything not sent as-is, a fully label-redacted copy (every detected span) for logs.
+    const sanitizedParts = decision === "ALLOW" ? null : input.parts.map((p, i) => redact(p, perPart[i]!, { mode: "label" }).text);
+    return { eventId: event.id, decision, reasons, categories: triggered, detections, redactedParts, sanitizedParts, redactedCount: redactionInfo?.count ?? 0, incidentId };
   }
 
   // ── Tool aggregates ─────────────────────────────────────────────────────
@@ -883,7 +885,8 @@ export function createDataSecurityService(deps: DataSecurityDeps) {
         const [sys, ...msgs] = r.redactedParts!;
         return { decision: "REDACT" as const, reasons, request: { ...(input.request.system !== undefined ? { system: sys } : {}), messages: input.request.messages.map((m, i) => ({ ...m, content: msgs[i]! })) } };
       }
-      return { decision: r.decision === "BLOCK" ? ("DENY" as const) : ("REQUIRE_APPROVAL" as const), reasons };
+      const [ssys, ...smsgs] = r.sanitizedParts!;
+      return { decision: r.decision === "BLOCK" ? "DENY" : "REQUIRE_APPROVAL", reasons, request: { ...(input.request.system !== undefined ? { system: ssys } : {}), messages: input.request.messages.map((m, i) => ({ ...m, content: smsgs[i]! })) } };
     },
 
     async listDlpEvents(ctx: TenantContext, q: { decision?: string; approval?: string; limit?: number } = {}) {

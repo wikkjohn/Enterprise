@@ -251,7 +251,8 @@ const SPAN_DETECTORS: SpanDetector[] = [
   {
     detector: "phone", category: "pii", label: "PHONE",
     re: /(?<![\d-])(?:\+1[ .-]?)?\(?\d{3}\)?[ .-]\d{3}[ .-]\d{4}(?![\d-])/g,
-    check: (m, t) => (near(t, m.index, /phone|mobile|cell|tel\b|contact/) ? { confidence: "medium", basis: "Phone format with phone keyword nearby", method: "keyword" } : { confidence: "low", basis: "North-American phone format", method: "pattern" }),
+    // Business phone numbers are everywhere; on their own they never make content sensitive.
+    check: () => ({ confidence: "low", basis: "North-American phone format", method: "pattern" }),
   },
   {
     detector: "date_of_birth", category: "pii", label: "DOB",

@@ -278,6 +278,8 @@ export function createAIService(deps: {
             request = r.request;
             decision = "ALLOW";
           } else if (r.decision !== "ALLOW") {
+            // A blocking hook may hand back a sanitized copy so the run log never keeps what it blocked.
+            if (r.request) request = r.request;
             decision = r.decision;
             break;
           }
