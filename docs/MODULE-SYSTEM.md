@@ -4,7 +4,7 @@ The platform is one shared core plus six modular applications. A module is a wor
 
 ## The six modules
 
-**Installed:** AI Workflow Intelligence ([modules/WORKFLOW-INTELLIGENCE.md](modules/WORKFLOW-INTELLIGENCE.md)) and Enterprise AI Integration ([modules/INTEGRATION.md](modules/INTEGRATION.md)), both v1.0.0. The other four are placeholders (`installStatus: "not_installed"`, `version: "0.0.0"`). Placeholders reserve identity, route prefix, permission keys, navigation and event names (`RESERVED_EVENT_TYPES` in each `src/index.ts`). They appear in `GET /api/v1/modules` and in navigation with `state: "not_installed"`, report health `not_configured` ("Module not yet installed"), and `enable` returns `CONFLICT` ("… is not installed on this platform yet.").
+**Installed:** AI Workflow Intelligence ([modules/WORKFLOW-INTELLIGENCE.md](modules/WORKFLOW-INTELLIGENCE.md)), Enterprise AI Integration ([modules/INTEGRATION.md](modules/INTEGRATION.md)) and AI Agent Governance ([modules/AGENT-GOVERNANCE.md](modules/AGENT-GOVERNANCE.md)), all v1.0.0. The other three are placeholders (`installStatus: "not_installed"`, `version: "0.0.0"`). Placeholders reserve identity, route prefix, permission keys, navigation and event names (`RESERVED_EVENT_TYPES` in each `src/index.ts`). They appear in `GET /api/v1/modules` and in navigation with `state: "not_installed"`, report health `not_configured` ("Module not yet installed"), and `enable` returns `CONFLICT` ("… is not installed on this platform yet.").
 
 | Id | Package dir | Name | `basePath` | Entry permission | Reserved permissions |
 |---|---|---|---|---|---|
@@ -119,6 +119,7 @@ Rules learned building it:
 - Client components may import **types only** from a module package (it pulls in `pg`); share formatting helpers in a `"use client"` file.
 - One transaction is one connection: run queries sequentially (no `Promise.all` on `tx`).
 - Background work goes through `platform.jobs` (register handlers in `install`); cross-module reactions through `platform.events.bus.subscribe` (Integration's event triggers subscribe to `"*"`).
+- Modules can extend each other without a package dependency through core extension points: `policies.registerInterceptor(kind, name, fn)` adds a deny-overrides check to another module's policy kind (Agent Governance enforces agent bindings inside `integration_action` this way), `apiKeys.registerActorBinder` maps API keys to a module actor type, and `authorizer.registerActorResolver` supplies that actor's permissions.
 - Policy-gated modules register a policy kind (`policyKinds`) and call `platform.policies.evaluateKind` before acting; reuse `platform.policyEngine` for any other rule evaluation instead of writing an evaluator.
 - Render anything locale/timezone/ICU-dependent identically on server and client (e.g. a mount-gated `LocalDate`, explicit `Intl` fraction digits) or hydration fails in production.
 

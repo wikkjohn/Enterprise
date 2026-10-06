@@ -33,10 +33,20 @@ export interface ApiKeyService {
   list(ctx: TenantContext): Promise<ApiKeyView[]>;
   revoke(ctx: TenantContext, id: string): Promise<void>;
   authenticate(rawKey: string): Promise<{ organizationId: string; actor: Actor } | null>;
+  /**
+   * Extension point: a module may bind specific keys to a non-human actor
+   * (e.g. Agent Governance maps an agent's credential to an "agent" actor).
+   * Binders run after the key is verified; the first non-null result wins.
+   * A binder that throws fails closed (authentication is refused).
+   */
+  registerActorBinder(name: string, binder: ApiKeyActorBinder): void;
 }
+
+export type ApiKeyActorBinder = (key: { id: string; organizationId: string; name: string; scopes: string[] }) => Promise<Actor | null>;
 
 export function createApiKeyService(deps: { db: Database; authorizer: Authorizer; registry: PermissionRegistry; audit: AuditService; bus: EventBus }): ApiKeyService {
   const { db, authorizer, registry, audit, bus } = deps;
+  const binders = new Map<string, ApiKeyActorBinder>();
   const view = (r: typeof apiKeysMetadata.$inferSelect): ApiKeyView => ({
     id: r.id,
     name: r.name,
@@ -113,7 +123,21 @@ export function createApiKeyService(deps: { db: Database; authorizer: Authorizer
       if (!row.k.lastUsedAt || Date.now() - row.k.lastUsedAt.getTime() > 60_000) {
         await db.withSystem("api_keys.touch", (tx) => tx.update(apiKeysMetadata).set({ lastUsedAt: new Date() }).where(eq(apiKeysMetadata.id, row.k.id)));
       }
+      for (const binder of binders.values()) {
+        let bound: Actor | null;
+        try {
+          bound = await binder({ id: row.k.id, organizationId: row.k.organizationId, name: row.k.name, scopes: row.k.scopes });
+        } catch {
+          return null; // fail closed
+        }
+        if (bound) return { organizationId: row.k.organizationId, actor: bound };
+      }
       return { organizationId: row.k.organizationId, actor: { type: "api_key", id: row.k.id, label: `api_key:${row.k.name}`, scopes: row.k.scopes } };
+    },
+
+    registerActorBinder(name, binder) {
+      if (binders.has(name)) throw new Error(`API key actor binder "${name}" already registered`);
+      binders.set(name, binder);
     },
   };
 }

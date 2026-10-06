@@ -21,7 +21,7 @@ const ev = <S extends z.ZodTypeAny>(type: string, description: string, schema: S
 
 export const INTEGRATION_EVENTS = [
   ev("integration.workflow.created", "An integration workflow was created.", z.object({ workflowId: id, name: z.string() })),
-  ev("integration.execution.started", "An execution (workflow run or AI tool call) started.", z.object({ executionId: id, workflowId: id.nullable(), actionId: id.nullable(), mode: z.string(), trigger: z.string() })),
+  ev("integration.execution.started", "An execution (workflow run or AI tool call) started.", z.object({ executionId: id, workflowId: id.nullable(), actionId: id.nullable(), mode: z.string(), trigger: z.string(), agentId: z.string().nullable().optional(), agentName: z.string().nullable().optional() })),
   ev("integration.execution.failed", "An execution failed or partially failed.", z.object({ executionId: id, workflowId: id.nullable(), status: z.string(), errorClass: z.string(), nodeKey: z.string().nullable(), mode: z.string() })),
   ev("integration.execution.completed", "An execution completed successfully.", z.object({ executionId: id, workflowId: id.nullable(), status: z.string(), durationMs: z.number(), mode: z.string() })),
   ev("integration.approval.required", "An action is paused waiting for human approval.", z.object({ approvalId: id, executionId: id, nodeKey: z.string(), risk: z.string(), title: z.string() })),
@@ -74,6 +74,7 @@ export const manifest: ModuleManifest = {
         "resource.attributes.operation": "read | list | search | write | delete | execute",
         "resource.attributes.bridgeType": "native | api_wrapper | database | sftp | rpa | ui_automation",
         "resource.attributes.connectorType": "shared connector type, e.g. salesforce",
+        "resource.attributes.connectorId": "shared connector id",
         "context.mode": "live | test",
         "context.trigger": "manual | api | event | gateway",
         "context.input": "validated action input",

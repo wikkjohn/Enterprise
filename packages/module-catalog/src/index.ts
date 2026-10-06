@@ -1,4 +1,4 @@
-import { manifest as agentGovernance } from "@eaop/module-agent-governance";
+import { agentGovernance } from "@eaop/module-agent-governance";
 import { manifest as aiOperations } from "@eaop/module-ai-operations";
 import { manifest as dataSecurity } from "@eaop/module-data-security";
 import { integrationHub } from "@eaop/module-integration-hub";
@@ -15,7 +15,7 @@ import { type ModuleDefinition } from "@eaop/platform";
 export const MODULE_DEFINITIONS: ModuleDefinition[] = [
   workflowIntelligence,
   integrationHub,
-  { manifest: agentGovernance },
+  agentGovernance,
   { manifest: dataSecurity },
   { manifest: knowledgeVerification },
   { manifest: aiOperations },

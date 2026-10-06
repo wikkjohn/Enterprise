@@ -99,13 +99,10 @@ Scoped grants are not considered for notification recipients (`recipients.permis
 | `system` | Every registered permission except `platform.admin` (still subject to org status and module entitlement) |
 | `agent` or any other type | A resolver registered with `authorizer.registerActorResolver(type, resolver)`; **no resolver → no permissions** |
 
-Extension point for Agent Governance:
+Agent Governance registers the `agent` resolver: an agent actor (an API key bound to an agent through `apiKeys.registerActorBinder`) holds its key's scopes **only while the agent is `approved` or `restricted` and not quarantined**, so suspending an agent removes every permission on its next request. Finer limits (action types, systems, amounts, approvals) come from the module's permission bindings — see [modules/AGENT-GOVERNANCE.md](modules/AGENT-GOVERNANCE.md).
 
 ```ts
-platform.rbac.authorizer.registerActorResolver("agent", async (ctx) => {
-  // look up the agent's approved grants in the module's tables (withTenant)
-  return { orgWide: ["connector.use"], scoped: [{ permission: "connector.use", scopeType: "resource", scopeId: "connector:<id>" }] };
-});
+platform.rbac.authorizer.registerActorResolver("agent", (ctx) => service.resolveAgentPermissions(ctx));
 ```
 
 The built-in types `user`, `system`, `api_key` cannot be overridden.

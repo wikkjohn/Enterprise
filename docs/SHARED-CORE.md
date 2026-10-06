@@ -135,7 +135,7 @@ Domain verification: `addDomain` returns a TXT record `eaop-verification=<token>
 
 ## `@eaop/auth` — `packages/auth/src`
 
-`SessionManager`, `ABSOLUTE_SESSION_HOURS`; `createAuthService` (`login`, `verifyMfa`, `logout`, `resolve`, `switchOrganization`, `acceptInvitation`, `describeInvitation`, `signup`, `bootstrapPlatformAdmin`, `changePassword`, `requestPasswordReset`, `resetPassword`, `beginMfaEnrollment`, `confirmMfaEnrollment`, `disableMfa`, `listSessions`, `revokeSession`, `createSessionForUser`); `createApiKeyService` (`create`, `list`, `revoke`, `authenticate`); `createSsoService` (`list`, `configureOidc`, `configureSaml`, `setStatus`, `discover`, `startLogin`, `completeOidc`). See [AUTHENTICATION.md](AUTHENTICATION.md).
+`SessionManager`, `ABSOLUTE_SESSION_HOURS`; `createAuthService` (`login`, `verifyMfa`, `logout`, `resolve`, `switchOrganization`, `acceptInvitation`, `describeInvitation`, `signup`, `bootstrapPlatformAdmin`, `changePassword`, `requestPasswordReset`, `resetPassword`, `beginMfaEnrollment`, `confirmMfaEnrollment`, `disableMfa`, `listSessions`, `revokeSession`, `createSessionForUser`); `createApiKeyService` (`create`, `list`, `revoke`, `authenticate`, `registerActorBinder` — lets a module map a verified key to its own actor type, first non-null wins, a throwing binder fails authentication closed); `createSsoService` (`list`, `configureOidc`, `configureSaml`, `setStatus`, `discover`, `startLogin`, `completeOidc`). See [AUTHENTICATION.md](AUTHENTICATION.md).
 
 ## `@eaop/module-registry` — `packages/module-registry/src`
 
@@ -158,6 +158,7 @@ Types (`ConnectorDefinition`, `ConnectorAdapter`, `AdapterContext`, `ConnectorEr
 - Safety: unknown operators fail validation and never match at runtime; `matches` regex ≤ 200 chars, input truncated to 10 000 chars; path resolution ignores `__proto__`, `prototype`, `constructor`.
 - Versions are immutable (`policy_versions`); `activate(key, version)` points `policies.active_version` at one.
 - `evaluateKind(ctx, kind, input, { defaultEffect })` evaluates every active policy of a kind and returns the most restrictive effect; with no active policy it returns `ALLOW` (or `defaultEffect`). It performs no permission check — it is for services enforcing policy on their own operations.
+- `registerInterceptor(kind, name, fn)`: code-level checks that run inside `evaluateKind` for a kind after stored policies and combine deny-overrides (a throwing interceptor yields DENY; reasons are prefixed `[name]`; `policies` lists `interceptor:<name>`). Agent Governance uses it on `integration_action`.
 - Built-in kinds: `access` (core) and `ai_usage` (registered by the AI service). Modules add kinds via `manifest.policyKinds` and operators via `platform.policyEngine.registerOperator("ns.op", fn)` (names must contain a dot).
 
 ## `@eaop/notifications` — `packages/notifications/src/index.ts`
