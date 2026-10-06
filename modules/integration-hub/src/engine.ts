@@ -227,7 +227,7 @@ export function createEngine(deps: EngineDeps) {
       "integration_action",
       {
         subject: { type: ex.actor.type, id: ex.actor.id, attributes: { agentId: ex.agent?.id ?? null, agentVerified: ex.actor.type === "agent" } },
-        resource: { type: "integration_action", id: action.key, attributes: { risk: action.risk, operation: action.operation, bridgeType: action.bridgeType, connectorType: action.connectorType, system: action.connectorName } },
+        resource: { type: "integration_action", id: action.key, attributes: { risk: action.risk, operation: action.operation, bridgeType: action.bridgeType, connectorType: action.connectorType, connectorId: action.connectorId, system: action.connectorName } },
         action: `integration.${action.operation}`,
         context: { mode: ex.mode, trigger: ex.trigger, workflowId: ex.workflowId, input },
       },
@@ -505,7 +505,7 @@ export function createEngine(deps: EngineDeps) {
     const ex = claimed;
     const st: ExecutionState = structuredClone(ex.state ?? {});
     const first = !ex.state || Object.keys(ex.state).length === 0;
-    if (first) await bus.publish(ctxFor(ex), "integration.execution.started", { executionId: ex.id, workflowId: ex.workflowId, actionId: ex.actionId, mode: ex.mode, trigger: ex.trigger });
+    if (first) await bus.publish(ctxFor(ex), "integration.execution.started", { executionId: ex.id, workflowId: ex.workflowId, actionId: ex.actionId, mode: ex.mode, trigger: ex.trigger, agentId: ex.agent?.id ?? null, agentName: ex.agent?.name ?? null });
 
     let snapshot: WorkflowSnapshot;
     try {

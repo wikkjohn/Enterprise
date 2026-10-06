@@ -23,6 +23,8 @@ process.on("SIGINT", () => (stopping = true));
 const schedules: Array<{ type: string; everyMs: number; next: number }> = [
   { type: "connectors.health_sweep", everyMs: 15 * 60_000, next: 0 },
   { type: "maintenance.retention", everyMs: 24 * 3600_000, next: Date.now() + 60_000 },
+  // Module-owned daily retention sweeps (only if the module is installed in this deployment).
+  ...["agent_governance.retention"].filter((t) => platform.jobs.registeredTypes().includes(t)).map((type) => ({ type, everyMs: 24 * 3600_000, next: Date.now() + 120_000 })),
 ];
 
 log.info("worker.started", { jobTypes: platform.jobs.registeredTypes() });

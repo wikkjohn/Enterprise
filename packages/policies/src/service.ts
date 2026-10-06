@@ -55,10 +55,21 @@ export interface PolicyService {
    * `defaulted` when no active policy exists unless `defaultEffect` is given.
    */
   evaluateKind(ctx: TenantContext, kind: string, request: PolicyInput, opts?: { defaultEffect?: PolicyDecision["effect"] }): Promise<PolicyDecision & { policies: Array<{ key: string; version: number; effect: string }> }>;
+  /**
+   * Extension point: a module contributes a decision to every evaluation of
+   * `kind` (e.g. Agent Governance enforces agent bindings on "integration_action").
+   * Interceptors return null to abstain. Their effects combine deny-overrides
+   * with the stored policies, so an interceptor can only make a decision
+   * stricter. An interceptor that throws yields DENY (fail closed).
+   */
+  registerInterceptor(kind: string, name: string, fn: PolicyInterceptor): void;
 }
+
+export type PolicyInterceptor = (ctx: TenantContext, request: PolicyInput) => Promise<{ effect: PolicyDecision["effect"]; reasons: string[] } | null>;
 
 export function createPolicyService(deps: { db: Database; engine: PolicyEngine; authorizer: Authorizer; audit: AuditService; bus: EventBus }): PolicyService {
   const { db, engine, authorizer, audit, bus } = deps;
+  const interceptors = new Map<string, Map<string, PolicyInterceptor>>();
   const kinds = new Map<string, PolicyKind>();
   kinds.set("access", {
     key: "access",
@@ -207,20 +218,41 @@ export function createPolicyService(deps: { db: Database; engine: PolicyEngine; 
           .innerJoin(policyVersions, and(eq(policyVersions.policyId, policies.id), eq(policyVersions.version, policies.activeVersion)))
           .where(and(eq(policies.organizationId, ctx.organizationId), eq(policies.kind, kind), eq(policies.status, "active"))),
       );
+      const order = { ALLOW: 0, REQUIRE_APPROVAL: 1, ESCALATE: 2, DENY: 3 } as const;
+      let base: PolicyDecision & { policies: Array<{ key: string; version: number; effect: string }> };
       if (rows.length === 0) {
         const effect = opts.defaultEffect ?? "ALLOW";
-        return { effect, matchedRules: [], defaulted: true, reasons: [`no active "${kind}" policy → ${effect}`], policies: [] };
+        base = { effect, matchedRules: [], defaulted: true, reasons: [`no active "${kind}" policy → ${effect}`], policies: [] };
+      } else {
+        const results = rows.map((r) => ({ key: r.key, version: r.version, decision: engine.evaluate(r.definition as unknown as PolicyDefinition, request) }));
+        const worst = results.reduce((a, b) => (order[b.decision.effect] > order[a.decision.effect] ? b : a));
+        base = {
+          effect: worst.decision.effect,
+          matchedRules: results.flatMap((r) => r.decision.matchedRules.map((m) => ({ ...m, id: `${r.key}#${m.id}` }))),
+          defaulted: results.every((r) => r.decision.defaulted),
+          reasons: results.flatMap((r) => r.decision.reasons.map((x) => `[${r.key} v${r.version}] ${x}`)),
+          policies: results.map((r) => ({ key: r.key, version: r.version, effect: r.decision.effect })),
+        };
       }
-      const results = rows.map((r) => ({ key: r.key, version: r.version, decision: engine.evaluate(r.definition as unknown as PolicyDefinition, request) }));
-      const order = { ALLOW: 0, REQUIRE_APPROVAL: 1, ESCALATE: 2, DENY: 3 } as const;
-      const worst = results.reduce((a, b) => (order[b.decision.effect] > order[a.decision.effect] ? b : a));
-      return {
-        effect: worst.decision.effect,
-        matchedRules: results.flatMap((r) => r.decision.matchedRules.map((m) => ({ ...m, id: `${r.key}#${m.id}` }))),
-        defaulted: results.every((r) => r.decision.defaulted),
-        reasons: results.flatMap((r) => r.decision.reasons.map((x) => `[${r.key} v${r.version}] ${x}`)),
-        policies: results.map((r) => ({ key: r.key, version: r.version, effect: r.decision.effect })),
-      };
+      for (const [name, fn] of interceptors.get(kind) ?? []) {
+        let r: { effect: PolicyDecision["effect"]; reasons: string[] } | null;
+        try {
+          r = await fn(ctx, request);
+        } catch {
+          r = { effect: "DENY", reasons: ["interceptor failed — denied (fail closed)"] };
+        }
+        if (!r) continue;
+        if (order[r.effect] > order[base.effect]) base = { ...base, effect: r.effect, defaulted: false };
+        base = { ...base, reasons: [...base.reasons, ...r.reasons.map((x) => `[${name}] ${x}`)], policies: [...base.policies, { key: `interceptor:${name}`, version: 0, effect: r.effect }] };
+      }
+      return base;
+    },
+
+    registerInterceptor(kind, name, fn) {
+      const m = interceptors.get(kind) ?? new Map<string, PolicyInterceptor>();
+      if (m.has(name)) throw new Error(`Policy interceptor "${name}" already registered for "${kind}"`);
+      m.set(name, fn);
+      interceptors.set(kind, m);
     },
   };
 }
