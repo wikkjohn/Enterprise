@@ -25,7 +25,7 @@ export interface RoutingRequirements {
 }
 
 /** Extension point (AI Operations Management): org routing policies by task, cost, privacy. */
-export type RoutingPolicy = (candidates: RoutableModel[], req: RoutingRequirements & { organizationId: string; moduleId: string; useCase: string }) => RoutableModel[];
+export type RoutingPolicy = (candidates: RoutableModel[], req: RoutingRequirements & { organizationId: string; moduleId: string; useCase: string }) => RoutableModel[] | Promise<RoutableModel[]>;
 
 const TIER_RANK: Record<ModelTier, number> = { economy: 0, standard: 1, premium: 2 };
 

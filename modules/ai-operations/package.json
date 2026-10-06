@@ -1,13 +1,25 @@
 {
   "name": "@eaop/module-ai-operations",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "private": true,
   "type": "module",
   "exports": {
     ".": "./src/index.ts"
   },
   "dependencies": {
+    "@eaop/ai": "workspace:*",
+    "@eaop/audit": "workspace:*",
+    "@eaop/db": "workspace:*",
+    "@eaop/events": "workspace:*",
+    "@eaop/jobs": "workspace:*",
     "@eaop/module-registry": "workspace:*",
-    "@eaop/shared-types": "workspace:*"
+    "@eaop/notifications": "workspace:*",
+    "@eaop/observability": "workspace:*",
+    "@eaop/platform": "workspace:*",
+    "@eaop/rbac": "workspace:*",
+    "@eaop/search": "workspace:*",
+    "@eaop/shared-types": "workspace:*",
+    "drizzle-orm": "^0.45.0",
+    "zod": "^3.24.1"
   }
 }

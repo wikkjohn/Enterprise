@@ -3,6 +3,7 @@ import { type ModuleManifest } from "@eaop/module-registry";
 import { type ModuleDefinition, type Platform } from "@eaop/platform";
 import { textScore } from "@eaop/search";
 import { createKnowledgeService, FRESHNESS_JOB, MODULE_ID, RETENTION_JOB, SYNC_JOB, type KnowledgeApi, type KnowledgeService } from "./service";
+import { knowledgeInsights } from "./insights";
 
 export * from "./service";
 export * from "./extract";
@@ -83,6 +84,7 @@ export const knowledgeVerification: ModuleDefinition = {
       connectors: platform.connectors, jobs: platform.jobs, organizations: platform.organizations, usage: platform.usage, modules: platform.modules, logger: platform.logger,
     });
     platform.moduleServices.set(MODULE_ID, service);
+    platform.insights.register(knowledgeInsights(platform));
 
     platform.jobs.register({
       type: SYNC_JOB,

@@ -6,6 +6,7 @@ import { textScore } from "@eaop/search";
 import { createEngine, EXPIRE_JOB, MODULE_ID, RUN_JOB } from "./engine";
 import { integrationActions, integrationWorkflows } from "./schema";
 import { createIntegrationService, type IntegrationService } from "./service";
+import { integrationInsights } from "./insights";
 
 export * from "./service";
 export * from "./validation";
@@ -112,6 +113,7 @@ export const integrationHub: ModuleDefinition = {
       permissions: platform.rbac.registry, eventRegistry: platform.events.registry, engine,
     });
     platform.moduleServices.set(MODULE_ID, service);
+    platform.insights.register(integrationInsights(platform));
 
     platform.jobs.register({
       type: RUN_JOB,

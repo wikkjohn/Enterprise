@@ -5,6 +5,7 @@ import { type ModuleDefinition, type Platform } from "@eaop/platform";
 import { textScore } from "@eaop/search";
 import { agents } from "./schema";
 import { APPROVAL_EXPIRE_JOB, createAgentGovernanceService, MODULE_ID, RETENTION_JOB, REVIEW_REMINDER_JOB, type AgentGovernanceService } from "./service";
+import { agentInsights } from "./insights";
 
 export * from "./service";
 export * from "./decision";
@@ -117,6 +118,7 @@ export const agentGovernance: ModuleDefinition = {
       organizations: platform.organizations, usage: platform.usage, permissions: platform.rbac.registry, modules: platform.modules, logger: platform.logger,
     });
     platform.moduleServices.set(MODULE_ID, service);
+    platform.insights.register(agentInsights(platform));
 
     // Agent credentials are shared API keys; a key linked to an agent identity authenticates AS the agent.
     platform.apiKeys.registerActorBinder(MODULE_ID, (key) => service.bindApiKey(key));

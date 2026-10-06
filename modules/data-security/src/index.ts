@@ -5,6 +5,7 @@ import { type ModuleDefinition, type Platform } from "@eaop/platform";
 import { textScore } from "@eaop/search";
 import { dataAssets, securityIncidents } from "./schema";
 import { createDataSecurityService, MODULE_ID, RETENTION_JOB, SCAN_JOB, type DataSecurityService } from "./service";
+import { securityInsights } from "./insights";
 
 export * from "./service";
 export * from "./detect";
@@ -106,6 +107,7 @@ export const dataSecurity: ModuleDefinition = {
       connectors: platform.connectors, secrets: platform.secrets, jobs: platform.jobs, organizations: platform.organizations, usage: platform.usage, modules: platform.modules, logger: platform.logger,
     });
     platform.moduleServices.set(MODULE_ID, service);
+    platform.insights.register(securityInsights(platform));
 
     // Every platform AI request passes through DLP before it reaches a provider (no-op where the module is not enabled).
     platform.ai.registerPolicyHook(MODULE_ID, (input) => service.aiHook(input));

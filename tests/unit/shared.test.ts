@@ -49,12 +49,12 @@ describe("permission registry and system roles", () => {
 });
 
 describe("module catalog", () => {
-  it("six modules, unique ids/paths, namespaced permissions; Workflow Intelligence, Integration, Agent Governance, Data Security and Knowledge & Verification installed", () => {
+  it("six modules, unique ids/paths, namespaced permissions; all six installed", () => {
     expect(MODULE_MANIFESTS).toHaveLength(6);
     const reg = new ModuleRegistry();
     MODULE_MANIFESTS.forEach((m) => reg.add(m));
     expect(new Set(MODULE_MANIFESTS.map((m) => m.basePath)).size).toBe(6);
-    expect(MODULE_MANIFESTS.filter((m) => m.installStatus === "installed").map((m) => m.id)).toEqual(["workflow_intelligence", "integration_hub", "agent_governance", "data_security", "knowledge_verification"]);
+    expect(MODULE_MANIFESTS.filter((m) => m.installStatus === "installed").map((m) => m.id)).toEqual(["workflow_intelligence", "integration_hub", "agent_governance", "data_security", "knowledge_verification", "ai_operations"]);
     const r = new PermissionRegistry();
     r.register("core", CORE_PERMISSIONS);
     for (const m of MODULE_MANIFESTS) expect(() => r.register(m.id, m.permissions)).not.toThrow();

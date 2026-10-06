@@ -242,7 +242,7 @@ export function createAIService(deps: {
       const ranking = rankModels(candidates, { model: input.model, provider: input.provider, capabilities: input.capabilities, tier: input.tier as ModelTier | undefined, dataClassification: input.dataClassification as DataClassification, estimatedInputTokens: estTokens });
       candidates = ranking.ranked;
       for (const policy of routingPolicies.values()) {
-        candidates = policy(candidates, { ...input, dataClassification: input.dataClassification as DataClassification, organizationId: ctx.organizationId, useCase: input.useCase, moduleId: input.moduleId, tier: input.tier as ModelTier | undefined });
+        candidates = await policy(candidates, { ...input, dataClassification: input.dataClassification as DataClassification, organizationId: ctx.organizationId, useCase: input.useCase, moduleId: input.moduleId, tier: input.tier as ModelTier | undefined });
       }
       const chosen = candidates[0];
       if (!chosen) {
