@@ -180,6 +180,7 @@ No compliance certification is claimed. See [docs/SECURITY.md](docs/SECURITY.md)
 | [RBAC](docs/RBAC.md) | Permissions, roles, scoped grants, safeguards |
 | [CONNECTORS](docs/CONNECTORS.md) | Connector framework, catalog, OAuth, secret managers |
 | [AI-PROVIDERS](docs/AI-PROVIDERS.md) | Provider layer, routing, execute pipeline, Anthropic notes |
+| [STAGING-AI-VERIFICATION](docs/STAGING-AI-VERIFICATION.md) | `pnpm verify:ai`: real-provider checks for grounding, costs, redaction, fail-closed routing |
 | [SECURITY](docs/SECURITY.md) | Threat model, controls, control mapping, known gaps |
 | [AUDIT](docs/AUDIT.md) | Audit schema, immutability, actions, export |
 | [OBSERVABILITY](docs/OBSERVABILITY.md) | Logs, correlation, metrics, health, usage |

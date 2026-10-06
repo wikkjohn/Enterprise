@@ -7,3 +7,4 @@ coverage
 .secrets-dev
 next-env.d.ts
 .env.local.sh
+staging-verification

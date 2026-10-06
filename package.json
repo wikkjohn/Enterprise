@@ -22,7 +22,8 @@
     "db:reset": "tsx packages/db/scripts/reset.ts",
     "worker": "tsx apps/worker/src/index.ts",
     "check": "pnpm typecheck && pnpm lint && pnpm test",
-    "platform:admin": "tsx scripts/create-platform-admin.ts"
+    "platform:admin": "tsx scripts/create-platform-admin.ts",
+    "verify:ai": "tsx scripts/verify-ai-provider.ts"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",
