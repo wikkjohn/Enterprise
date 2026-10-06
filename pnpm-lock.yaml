@@ -84,6 +84,9 @@ importers:
       '@eaop/module-catalog':
         specifier: workspace:*
         version: link:../../packages/module-catalog
+      '@eaop/module-data-security':
+        specifier: workspace:*
+        version: link:../../modules/data-security
       '@eaop/module-integration-hub':
         specifier: workspace:*
         version: link:../../modules/integration-hub

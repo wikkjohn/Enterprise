@@ -87,7 +87,7 @@ describe("AI DLP through the shared AI layer", () => {
     const inc = await svc.listIncidents(A.adminCtx(), { kind: "credential_exposure" });
     expect(inc[0]).toMatchObject({ severity: "high", status: "open" });
     const detail = await svc.getIncident(A.adminCtx(), inc[0]!.id);
-    expect(detail.remediation.map((r) => r.action)).toContain("rotate_credential");
+    expect(detail.remediationActions.map((r) => r.action)).toContain("rotate_credential");
     expect(await rawRows(A.org.id)).not.toContain(AWS);
   });
   it("payroll content requires approval; a different person approves; the same content then passes once", async () => {

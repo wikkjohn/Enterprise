@@ -1042,7 +1042,7 @@ export function createDataSecurityService(deps: DataSecurityDeps) {
         return {
           ...incidentView(row.i, row.ownerName),
           timeline: timeline.map((t) => ({ id: t.id, kind: t.kind, message: t.message, data: t.data, actor: t.actorLabel, at: t.createdAt.toISOString() })),
-          assets, remediation: rem.map(remediationView), dlpEvents: dlp.map(dlpView),
+          assets, remediationActions: rem.map(remediationView), dlpEvents: dlp.map(dlpView),
         };
       });
     },
