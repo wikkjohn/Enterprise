@@ -51,6 +51,7 @@ export const REST_API_DEFINITION: ConnectorDefinition = {
         path: { type: "string", required: true, description: "Path relative to the base URL, e.g. /v1/items" },
         query: { type: "object" },
         body: { type: "object" },
+        headers: { type: "object", description: "Extra request headers. Authorization, cookies and hop-by-hop headers are ignored." },
       },
     },
   ],

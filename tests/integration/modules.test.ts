@@ -37,7 +37,7 @@ describe("module registry and entitlements", () => {
     const ih = nav.find((m) => m.id === "integration_hub")!;
     expect(ih.state).toBe("enabled");
     expect(ih.items.length).toBeGreaterThan(0);
-    const viewer = await addMember(p, O.org.id, ["read_only"]);
+    const viewer = await addMember(p, O.org.id, ["executive"]); // executive has no integration.* grant
     const vnav = await p.modules.navigation(viewer.ctx());
     expect(vnav.find((m) => m.id === "integration_hub")).toBeUndefined(); // no entry permission
   });
