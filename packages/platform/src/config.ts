@@ -11,6 +11,8 @@ export const envSchema = z.object({
   SECRETS_PROVIDER: z.enum(["local", "aws", "azure", "vault", "gcp"]).default("local"),
   LOCAL_SECRETS_KEY: z.string().optional(),
   ALLOW_LOCAL_SECRETS_IN_PRODUCTION: z.string().optional(),
+  /** Region for SECRETS_PROVIDER=aws (falls back to the AWS SDK's own resolution if unset). */
+  AWS_REGION: z.string().optional(),
   ALLOW_SELF_SERVE_SIGNUP: bool,
   /** Allow connectors/webhooks to reach private networks (dev / on-prem only). Disables the SSRF guard. */
   ALLOW_PRIVATE_NETWORK_EGRESS: bool,
