@@ -1,0 +1,81 @@
+name: Security
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    # Weekly, so newly-disclosed advisories in unchanged dependencies are caught.
+    - cron: "17 6 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  dependency-audit:
+    name: Dependency vulnerability audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: 10.28.0 }
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      # Block the build on known-vulnerable SHIPPED dependencies (high + critical).
+      - name: Audit production dependencies (high/critical fails the build)
+        run: pnpm audit --prod --audit-level high
+      # Full report (incl. dev + moderate/low) for visibility; never fails the build.
+      - name: Full advisory report (informational)
+        if: always()
+        run: pnpm audit || true
+
+  security-regressions:
+    name: Security regression tests (findings — expected red until fixed)
+    runs-on: ubuntu-latest
+    # These encode secure behaviour the code does not yet satisfy; failures are
+    # the open findings in docs/SECURITY-ASSESSMENT.md, not a broken build.
+    continue-on-error: true
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: eaop
+          POSTGRES_PASSWORD: eaop
+          POSTGRES_DB: eaop_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U eaop -d eaop_test" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      TEST_DATABASE_ADMIN_URL: postgres://eaop:eaop@localhost:5432/eaop_test
+      TEST_DATABASE_URL: postgres://eaop_app:eaop_app@localhost:5432/eaop_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: 10.28.0 }
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - name: Create non-superuser runtime role
+        run: PGPASSWORD=eaop psql -h localhost -U eaop eaop_test -c "CREATE ROLE eaop_app WITH LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD 'eaop_app';"
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test:security
+
+  secret-scan:
+    name: Secret scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Full history so a secret committed earlier (even if later removed) is still caught.
+          fetch-depth: 0
+      - name: gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITLEAKS_ENABLE_UPLOAD_ARTIFACT: "false"
+          GITLEAKS_ENABLE_SUMMARY: "true"

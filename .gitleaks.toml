@@ -1,0 +1,23 @@
+# gitleaks configuration. Uses the full default rule set and allowlists the
+# non-secret test fixtures in this repository (deterministic dummy keys used by
+# the test suite — never real credentials). Real secrets live only in the
+# secret store / environment and must never be committed.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Test fixtures and deterministic dummy credentials"
+paths = [
+  '''tests/.*''',
+  '''.*\.test\.ts''',
+  '''packages/auth/src/testing-.*\.ts''',
+  '''docs/.*\.md''',
+]
+regexes = [
+  # Deterministic dummy values asserted by the test suite.
+  '''test-app-secret-that-is-at-least-32-chars-long''',
+  '''correct-horse-battery-staple''',
+  '''ci-build-secret-ci-build-secret-ci-build-0001''',
+  # AWS example key from AWS's own docs, used in DLP/redaction tests.
+  '''AKIAIOSFODNN7EXAMPLE''',
+]
