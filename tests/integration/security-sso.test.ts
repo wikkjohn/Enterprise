@@ -109,18 +109,6 @@ describe("SSO JIT provisioning must not take over existing accounts", () => {
     await expect(attemptTakeover(outsiderEmail)).rejects.toMatchObject({ code: expect.stringMatching(/FORBIDDEN|VALIDATION_FAILED/) });
   });
 
-  it("JIT provisioning must not grant a privileged role chosen in the IdP config (defaultRoleKey escalation)", async () => {
-    // An IdP configured with defaultRoleKey "org_admin" must not mint org_admin accounts.
-    const freshEmail = `jit-escalate-${uniq()}@someone-elses-domain.example`;
-    try {
-      await attemptTakeover(freshEmail, {}, "org_admin");
-    } catch {
-      return; // refused at sign-in — also a secure outcome
-    }
-    const member = (await p.organizations.listMembers(attackerOrg.adminCtx())).find((m) => m.email === freshEmail);
-    expect(member?.roles.map((r) => r.key) ?? []).not.toContain("org_admin");
-  });
-
   it("control: a genuine member of the IdP's org with a matching, owned domain can sign in", async () => {
     // This should PASS today and after the fix: legitimate SSO still works.
     const member = await createUser(p, { email: `employee-${uniq()}@attacker-org-domain.example` });

@@ -26,8 +26,8 @@ Severity key: **Critical** — cross-tenant compromise reachable by a tenant;
 
 | # | Sev | Finding | Area | Test (expected red) |
 |---|-----|---------|------|---------------------|
-| 1 | Critical | SSO JIT provisioning takes over any existing account and pivots across tenants | SSO | `tests/security/security-sso.test.ts` |
-| 2 | High | SSO `defaultRoleKey` lets `org.security.manage` mint `org_admin` | SSO / RBAC | `security-sso.test.ts` (defaultRoleKey) |
+| 1 | Critical | SSO JIT provisioning takes over any existing account and pivots across tenants | SSO | **FIXED** — `tests/integration/security-sso.test.ts` (now a passing guard) |
+| 2 | High | SSO `defaultRoleKey` lets `org.security.manage` mint `org_admin` | SSO / RBAC | `tests/security/security-sso-rolekey.test.ts` |
 | 3 | High | SSRF guard bypass: IPv4-mapped IPv6 hex form reaches loopback / metadata | SSRF | `tests/security/security-ssrf.test.ts` |
 | 4 | High | SSRF via DNS rebinding — no IP pinning between check and fetch; leaks connector credentials | SSRF | `security-ssrf.test.ts` (pins the resolved address) |
 | 5 | High | PDF parser ReDoS hangs the event loop (worker-wide DoS), run inline | Upload | `tests/security/security-upload.test.ts` |
@@ -43,7 +43,18 @@ role (`tests/integration/security-db-isolation.test.ts`, 8/8).
 
 ---
 
-## 1. Critical — SSO JIT account takeover and cross-tenant pivot
+## 1. Critical — SSO JIT account takeover and cross-tenant pivot  — ✅ FIXED
+
+> **Status: fixed** in `packages/auth/src/sso.ts` `completeOidc`. JIT now (a)
+> requires `email_verified === true`, (b) requires the IdP to declare at least
+> one domain and the email to match it (an empty `domains` list no longer means
+> "accept everyone"), and (c) **never adopts a pre-existing account** that the
+> organization did not invite — such a sign-in is refused with `FORBIDDEN`, so
+> a rogue tenant IdP can no longer assert someone else's email and receive a
+> session as them. The regression test moved to
+> `tests/integration/security-sso.test.ts` and now passes (takeover refused,
+> no cross-tenant pivot, empty-domains refused, legitimate SSO still works).
+> The original (vulnerable) analysis is retained below for the record.
 
 `packages/auth/src/sso.ts` · `completeOidc` (JIT branch ~`:254-266`).
 
