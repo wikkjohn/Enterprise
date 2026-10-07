@@ -65,7 +65,7 @@ Aligned by category with SOC 2 Trust Services Criteria, ISO/IEC 27001:2022 Annex
 
 | Gap | Notes |
 |---|---|
-| Managed secret manager adapters (AWS/Azure/Vault/GCP) | Stubs only; production needs one (or the explicit local override) |
+| Managed secret manager adapters | **AWS Secrets Manager is implemented** (`SECRETS_PROVIDER=aws`, `packages/secrets/src/aws.ts`). Azure/Vault/GCP remain stubs that fail closed; production on those needs an adapter (or the explicit local override) |
 | Shared rate limiter | In-memory per instance; a Redis-backed `RateLimiter` is an extension point (`REDIS_URL` reserved, not read) |
 | SAML sign-in, SCIM, MFA recovery codes, WebAuthn | Not implemented |
 | OIDC | Implemented but not yet validated against a real IdP |

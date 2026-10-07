@@ -151,6 +151,17 @@ export function createSsoService(deps: {
     async configureOidc(ctx, raw) {
       await authorizer.require(ctx, "org.security.manage");
       const input = configureOidcSchema.parse(raw);
+      // Anti-escalation: the JIT provisioning role is a role grant, so the configurer
+      // may only choose a role whose permissions they themselves hold org-wide. Without
+      // this, org.security.manage (which lacks role.manage) could mint org_admin accounts
+      // through SSO. Mirrors the invitation holds-check.
+      const held = await authorizer.effective(ctx);
+      const roleList = await deps.roles.listRoles({ ...ctx, actor: SYSTEM_ACTOR("sso.configure") });
+      const jitRole = roleList.find((r) => r.key === input.defaultRoleKey);
+      if (!jitRole) throw new AppError("VALIDATION_FAILED", `Unknown role "${input.defaultRoleKey}".`);
+      if (ctx.actor.type !== "system" && jitRole.permissions.some((perm) => !held.orgWide.has(perm))) {
+        throw new AppError("FORBIDDEN", `You cannot set "${jitRole.name}" as the JIT provisioning role because you do not hold all of its permissions.`);
+      }
       const disco = await discovery(input.issuer); // validates reachability + SSRF policy
       const secretRef = input.clientSecret ? await secrets.put({ organizationId: ctx.organizationId, name: "oidc-client-secret", value: input.clientSecret }) : null;
       const [row] = await db.withTenant(scopeOf(ctx), (tx) =>
@@ -239,7 +250,8 @@ export function createSsoService(deps: {
       });
       if (payload.nonce !== state.nonce) throw new AppError("UNAUTHENTICATED", "SSO nonce mismatch.");
       const email = typeof payload.email === "string" ? payload.email.toLowerCase() : null;
-      if (!email || payload.email_verified === false) throw new AppError("UNAUTHENTICATED", "The identity provider did not return a verified email.");
+      // Require a positively-verified email: an IdP that omits email_verified is not trusted to assert ownership.
+      if (!email || payload.email_verified !== true) throw new AppError("UNAUTHENTICATED", "The identity provider did not return a verified email.");
       const domain = email.split("@")[1]!;
       if (idp.domains.length && !idp.domains.includes(domain)) throw new AppError("FORBIDDEN", "Your email domain is not permitted for this identity provider.");
 
@@ -252,6 +264,20 @@ export function createSsoService(deps: {
       if (member?.status === "active") {
         // existing member — fall through
       } else if (idp.jitProvisioning && (!member || member.status === "invited")) {
+        // Just-in-time provisioning is a trust boundary: the IdP is configured by this
+        // tenant alone, so it may only create NEW accounts for a domain the tenant has
+        // declared. It must never adopt an account that already exists elsewhere and was
+        // not invited into THIS organization — otherwise a tenant that runs its own IdP
+        // could assert any person's email and sign in as them (account takeover).
+        if (!idp.domains.length || !idp.domains.includes(domain)) {
+          await audit.recordDetached(ctx, { action: AuditActions.LOGIN_FAILED, outcome: "denied", metadata: { reason: "sso_jit_domain_not_permitted", email } });
+          throw new AppError("FORBIDDEN", "This identity provider cannot provision accounts for your email domain.");
+        }
+        if (user && !member) {
+          // A pre-existing account that this org never invited: require an explicit invitation, not silent SSO adoption.
+          await audit.recordDetached(ctx, { action: AuditActions.LOGIN_FAILED, outcome: "denied", metadata: { reason: "sso_jit_existing_account", email } });
+          throw new AppError("FORBIDDEN", "An account with this email already exists. Join this organization by invitation before signing in with SSO.");
+        }
         if (!user) {
           const name = typeof payload.name === "string" ? payload.name.slice(0, 160) : email;
           [user] = await db.withSystem("sso.jit_user", (tx) => tx.insert(users).values({ email, name, status: "active" }).returning());

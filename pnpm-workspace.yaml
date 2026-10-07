@@ -6,3 +6,6 @@ onlyBuiltDependencies:
   - esbuild
   - sharp
   - "@tailwindcss/oxide"
+overrides:
+  # Security: force a patched postcss (transitive via next). See docs/SECURITY-ASSESSMENT.md #10.
+  "postcss@<8.5.18": ">=8.5.18"

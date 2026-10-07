@@ -6,7 +6,7 @@ import {
 } from "@eaop/db";
 import { AuditActions, type AuditService } from "@eaop/audit";
 import { type EventBus } from "@eaop/events";
-import { type Authorizer, type RoleService } from "@eaop/rbac";
+import { type Authorizer, type RoleService, SOD_CONSTRAINTS } from "@eaop/rbac";
 import { randomToken, sha256 } from "@eaop/security";
 import { AppError, conflict, forbidden, notFound, SYSTEM_ACTOR, type PlatformContext, type TenantContext, type Uuid } from "@eaop/shared-types";
 
@@ -380,6 +380,10 @@ export function createOrganizationService(deps: {
         const role = roleList.find((r) => r.key === key);
         if (!role) throw new AppError("VALIDATION_FAILED", `Unknown role "${key}".`);
         if (ctx.actor.type !== "system" && role.permissions.some((p) => !held.orgWide.has(p))) throw forbidden(`You cannot grant the "${role.name}" role.`);
+      }
+      // Separation of duties: a single invitation may not hand out a conflicting role pair.
+      for (const c of SOD_CONSTRAINTS) {
+        if (data.roleKeys.includes(c.a) && data.roleKeys.includes(c.b)) throw conflict(`Separation of duties: ${c.reason}`);
       }
       const token = randomToken(32);
       const expiresAt = new Date(Date.now() + 7 * 24 * 3600 * 1000);

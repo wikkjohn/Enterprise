@@ -16,6 +16,7 @@
     "@eaop/security": "workspace:*",
     "@eaop/shared-types": "workspace:*",
     "@eaop/usage": "workspace:*",
+    "undici": "^6.21.1",
     "zod": "^3.25.76"
   }
 }

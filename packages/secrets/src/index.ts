@@ -1,6 +1,9 @@
 import { createCipheriv, createDecipheriv, randomBytes, randomUUID } from "node:crypto";
 import { and, devSecretValues, eq, isNull, like, type Database } from "@eaop/db";
 import { AppError, notConfigured, type Uuid } from "@eaop/shared-types";
+import { AwsSecretsManagerStore, createAwsSecretsClient } from "./aws";
+
+export { AwsSecretsManagerStore, createAwsSecretsClient, type AwsSecretsClient } from "./aws";
 
 /**
  * Provider-agnostic secret storage. The application database stores only
@@ -148,7 +151,7 @@ export class UnconfiguredSecretStore implements SecretStore {
   }
 }
 
-export function createSecretStore(db: Database, env: { SECRETS_PROVIDER?: string; LOCAL_SECRETS_KEY?: string; APP_ENV?: string; ALLOW_LOCAL_SECRETS_IN_PRODUCTION?: string }): SecretStore {
+export function createSecretStore(db: Database, env: { SECRETS_PROVIDER?: string; LOCAL_SECRETS_KEY?: string; APP_ENV?: string; ALLOW_LOCAL_SECRETS_IN_PRODUCTION?: string; AWS_REGION?: string }): SecretStore {
   const provider = (env.SECRETS_PROVIDER ?? "local") as SecretProviderKind;
   if (provider === "local") {
     if (!env.LOCAL_SECRETS_KEY) throw new AppError("NOT_CONFIGURED", "LOCAL_SECRETS_KEY is required for the local secret store.");
@@ -157,7 +160,8 @@ export function createSecretStore(db: Database, env: { SECRETS_PROVIDER?: string
       allowInProduction: env.ALLOW_LOCAL_SECRETS_IN_PRODUCTION === "true",
     });
   }
-  if (["aws", "azure", "vault", "gcp"].includes(provider)) return new UnconfiguredSecretStore(provider as Exclude<SecretProviderKind, "local">);
+  if (provider === "aws") return new AwsSecretsManagerStore(createAwsSecretsClient({ region: env.AWS_REGION }));
+  if (["azure", "vault", "gcp"].includes(provider)) return new UnconfiguredSecretStore(provider as Exclude<SecretProviderKind, "local">);
   throw new AppError("NOT_CONFIGURED", `Unknown SECRETS_PROVIDER "${provider}".`);
 }
 

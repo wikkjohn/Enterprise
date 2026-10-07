@@ -40,6 +40,8 @@ export const sessions = pgTable(
     mfaVerifiedAt: ts("mfa_verified_at"),
     /** True while the session awaits a second factor; such sessions cannot access tenant data. */
     mfaPending: boolean("mfa_pending").notNull().default(false),
+    /** Failed second-factor attempts on this (pending) session; the session is revoked past a cap. */
+    mfaFailedCount: integer("mfa_failed_count").notNull().default(0),
     ip: text("ip"),
     userAgent: text("user_agent"),
     createdAt: createdAt(),

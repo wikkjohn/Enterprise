@@ -85,6 +85,8 @@ export interface PlatformOverrides {
   fetchImpl?: typeof fetch;
   email?: EmailSender;
   rateLimiter?: RateLimiter;
+  /** Replacement secret store (e.g. a managed-provider adapter backed by a test double). */
+  secrets?: SecretStore;
   /** Installed modules (definitions or bare manifests). Defaults to none. */
   modules?: Array<ModuleDefinition | ModuleManifest>;
   /** Extra / replacement AI providers (by kind) — tests and private deployments. */
@@ -106,8 +108,11 @@ export function createPlatform(env: PlatformEnv, o: PlatformOverrides = {}): Pla
   const tracer = createTracer({ logger, metrics });
   const db = o.db ?? createDatabase({ connectionString: env.DATABASE_URL, onAfterCommitError: (err) => logger.error("db.after_commit_failed", { error: (err as Error).message }) });
   const errors = createErrorReporter({ db, logger });
-  const urlGuard: UrlGuardOptions = o.urlGuard ?? { allowHttp: !isProd && env.ALLOW_PRIVATE_NETWORK_EGRESS, allowPrivateNetworks: env.ALLOW_PRIVATE_NETWORK_EGRESS };
-  const secrets = createSecretStore(db, env as unknown as Record<string, string | undefined>);
+  // In production the blanket private-network egress flag is honoured only with the explicit
+  // production acknowledgement (loadEnv also hard-fails without it); otherwise the SSRF guard stays on.
+  const allowPrivateEgress = env.ALLOW_PRIVATE_NETWORK_EGRESS && (!isProd || env.ALLOW_PRIVATE_NETWORK_EGRESS_IN_PRODUCTION);
+  const urlGuard: UrlGuardOptions = o.urlGuard ?? { allowHttp: !isProd && allowPrivateEgress, allowPrivateNetworks: allowPrivateEgress };
+  const secrets = o.secrets ?? createSecretStore(db, env as unknown as Record<string, string | undefined>);
   const rateLimiter = o.rateLimiter ?? new MemoryRateLimiter();
   const audit = createAuditService({ db, logger });
   const jobs = createJobQueue({ db, logger, metrics });

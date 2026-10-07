@@ -32,7 +32,8 @@ Validated by `envSchema` in `packages/platform/src/config.ts` (the process fails
 | `APP_URL` | no | `http://localhost:3000` | Public origin. Used for CSRF origin checks, OIDC/OAuth redirect URIs, invitation and reset links |
 | `APP_SECRET` | **yes** | — | ≥ 32 characters. HMAC key for SSO state and connector OAuth state |
 | `DATABASE_URL` | **yes** | — | Runtime role (non-superuser, no BYPASSRLS, member of `eaop_runtime`) |
-| `SECRETS_PROVIDER` | no | `local` | `local` / `aws` / `azure` / `vault` / `gcp`; only `local` is implemented |
+| `SECRETS_PROVIDER` | no | `local` | `local` / `aws` / `azure` / `vault` / `gcp`; `local` and `aws` (AWS Secrets Manager) are implemented |
+| `AWS_REGION` | no | — | Region for `SECRETS_PROVIDER=aws` (else the AWS SDK's own resolution). AWS credentials come from the instance/workload role |
 | `LOCAL_SECRETS_KEY` | with `local` | — | base64 of exactly 32 bytes |
 | `ALLOW_LOCAL_SECRETS_IN_PRODUCTION` | no | — | `true` lets the local store run with `APP_ENV=production` (single-node/evaluation only) |
 | `ALLOW_SELF_SERVE_SIGNUP` | no | `false` | Enables `POST /api/v1/auth/signup` |
@@ -121,7 +122,7 @@ Rely on the managed database's automated backups and PITR; the platform keeps al
 
 ## Secret manager requirement
 
-Production (`APP_ENV=production`) refuses the local secret store unless `ALLOW_LOCAL_SECRETS_IN_PRODUCTION=true`, and the `aws`/`azure`/`vault`/`gcp` providers are stubs. A production deployment therefore needs either an implemented `SecretStore` for your secret manager ([CONNECTORS.md](CONNECTORS.md#secret-managers)) or an explicit, documented acceptance of the local store with `LOCAL_SECRETS_KEY` held in your platform's secret injection.
+Production (`APP_ENV=production`) refuses the local secret store unless `ALLOW_LOCAL_SECRETS_IN_PRODUCTION=true`. **AWS Secrets Manager** is implemented: set `SECRETS_PROVIDER=aws` (and `AWS_REGION`), with AWS credentials supplied by the instance/workload IAM role — the app stores only `secret://aws/<owner>/<id>` references and the values live in Secrets Manager under `eaop/<owner>/<id>`. The `azure`/`vault`/`gcp` providers are still stubs that fail closed; deploying on those needs an adapter ([CONNECTORS.md](CONNECTORS.md#secret-managers)) or the explicit local override. Run one real smoke test in staging with live AWS credentials before cutover — the adapter's unit tests use an in-memory double.
 
 ## Security headers and TLS
 

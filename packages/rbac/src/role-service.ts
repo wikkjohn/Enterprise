@@ -249,9 +249,16 @@ export function createRoleService(deps: {
     async grantInternal(ctx, membershipId, roleKey) {
       const role = await roleByKey(ctx, roleKey);
       if (!role || role.key === "platform_admin") throw notFound("Role", roleKey);
-      await db.withTenant(scopeOf(ctx), (tx) =>
-        tx.insert(memberRoles).values({ organizationId: ctx.organizationId, membershipId, roleId: role.id }).onConflictDoNothing(),
-      );
+      await db.withTenant(scopeOf(ctx), async (tx) => {
+        // Separation of duties is enforced on EVERY grant path, not only assign():
+        // invitation acceptance and SSO JIT also flow through here.
+        const current = await tx.select({ key: roles.key }).from(memberRoles).innerJoin(roles, eq(roles.id, memberRoles.roleId)).where(eq(memberRoles.membershipId, membershipId));
+        for (const c of SOD_CONSTRAINTS) {
+          const has = (k: string) => current.some((r) => r.key === k);
+          if ((role.key === c.a && has(c.b)) || (role.key === c.b && has(c.a))) throw conflict(`Separation of duties: ${c.reason}`);
+        }
+        await tx.insert(memberRoles).values({ organizationId: ctx.organizationId, membershipId, roleId: role.id }).onConflictDoNothing();
+      });
     },
   };
 }
