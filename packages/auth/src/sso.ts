@@ -151,6 +151,17 @@ export function createSsoService(deps: {
     async configureOidc(ctx, raw) {
       await authorizer.require(ctx, "org.security.manage");
       const input = configureOidcSchema.parse(raw);
+      // Anti-escalation: the JIT provisioning role is a role grant, so the configurer
+      // may only choose a role whose permissions they themselves hold org-wide. Without
+      // this, org.security.manage (which lacks role.manage) could mint org_admin accounts
+      // through SSO. Mirrors the invitation holds-check.
+      const held = await authorizer.effective(ctx);
+      const roleList = await deps.roles.listRoles({ ...ctx, actor: SYSTEM_ACTOR("sso.configure") });
+      const jitRole = roleList.find((r) => r.key === input.defaultRoleKey);
+      if (!jitRole) throw new AppError("VALIDATION_FAILED", `Unknown role "${input.defaultRoleKey}".`);
+      if (ctx.actor.type !== "system" && jitRole.permissions.some((perm) => !held.orgWide.has(perm))) {
+        throw new AppError("FORBIDDEN", `You cannot set "${jitRole.name}" as the JIT provisioning role because you do not hold all of its permissions.`);
+      }
       const disco = await discovery(input.issuer); // validates reachability + SSRF policy
       const secretRef = input.clientSecret ? await secrets.put({ organizationId: ctx.organizationId, name: "oidc-client-secret", value: input.clientSecret }) : null;
       const [row] = await db.withTenant(scopeOf(ctx), (tx) =>

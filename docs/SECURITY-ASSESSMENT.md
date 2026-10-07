@@ -27,7 +27,7 @@ Severity key: **Critical** — cross-tenant compromise reachable by a tenant;
 | # | Sev | Finding | Area | Test (expected red) |
 |---|-----|---------|------|---------------------|
 | 1 | Critical | SSO JIT provisioning takes over any existing account and pivots across tenants | SSO | **FIXED** — `tests/integration/security-sso.test.ts` (now a passing guard) |
-| 2 | High | SSO `defaultRoleKey` lets `org.security.manage` mint `org_admin` | SSO / RBAC | `tests/security/security-sso-rolekey.test.ts` |
+| 2 | High | SSO `defaultRoleKey` lets `org.security.manage` mint `org_admin` | SSO / RBAC | **FIXED** — `tests/integration/security-sso-rolekey.test.ts` |
 | 3 | High | SSRF guard bypass: IPv4-mapped IPv6 hex form reaches loopback / metadata | SSRF | `tests/security/security-ssrf.test.ts` |
 | 4 | High | SSRF via DNS rebinding — no IP pinning between check and fetch; leaks connector credentials | SSRF | `security-ssrf.test.ts` (pins the resolved address) |
 | 5 | High | PDF parser ReDoS hangs the event loop (worker-wide DoS), run inline | Upload | `tests/security/security-upload.test.ts` |
@@ -122,7 +122,14 @@ that user's other organizations. Full multi-tenant compromise.
 
 ---
 
-## 2. High — SSO `defaultRoleKey` privilege escalation to `org_admin`
+## 2. High — SSO `defaultRoleKey` privilege escalation to `org_admin`  — ✅ FIXED
+
+> **Status: fixed** in `packages/auth/src/sso.ts` `configureOidc`: the chosen
+> JIT `defaultRoleKey` now passes the same anti-escalation holds-check as
+> invitations — the configurer may only select a role whose permissions they
+> themselves hold org-wide (unknown roles are rejected). A `security_admin`
+> (no `role.manage`) can therefore no longer provision `org_admin`. Guarded by
+> `tests/integration/security-sso-rolekey.test.ts`. Original analysis below.
 
 `packages/auth/src/sso.ts` — `configureOidc` (`defaultRoleKey` unvalidated,
 schema `:29`), `completeOidc:266` → `roles.grantInternal(ctx, m.id, idp.defaultRoleKey)`.
