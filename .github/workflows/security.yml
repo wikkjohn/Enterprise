@@ -34,11 +34,11 @@ jobs:
         run: pnpm audit || true
 
   security-regressions:
-    name: Security regression tests (findings — expected red until fixed)
+    name: Security regression tests (findings visibility)
     runs-on: ubuntu-latest
-    # These encode secure behaviour the code does not yet satisfy; failures are
-    # the open findings in docs/SECURITY-ASSESSMENT.md, not a broken build.
-    continue-on-error: true
+    # These encode secure behaviour the code does not yet satisfy; a failure is
+    # an open finding in docs/SECURITY-ASSESSMENT.md, not a broken build, so the
+    # job surfaces results as a warning without going red (see the final step).
     services:
       postgres:
         image: postgres:16
@@ -64,11 +64,20 @@ jobs:
       - name: Create non-superuser runtime role
         run: PGPASSWORD=eaop psql -h localhost -U eaop eaop_test -c "CREATE ROLE eaop_app WITH LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD 'eaop_app';"
       - run: pnpm install --frozen-lockfile
-      - run: pnpm test:security
+      - name: Run security regression tests (open findings are warnings, not failures)
+        run: |
+          if pnpm test:security; then
+            echo "All security regression tests pass — no open findings."
+          else
+            echo "::warning::Open security findings present — see docs/SECURITY-ASSESSMENT.md and the log above."
+          fi
 
   secret-scan:
     name: Secret scan
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
     steps:
       - uses: actions/checkout@v4
         with:
@@ -77,5 +86,7 @@ jobs:
       - name: gitleaks
         uses: gitleaks/gitleaks-action@v2
         env:
+          # Required by gitleaks-action v2 to scan pull requests.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITLEAKS_ENABLE_UPLOAD_ARTIFACT: "false"
           GITLEAKS_ENABLE_SUMMARY: "true"

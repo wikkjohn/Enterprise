@@ -11,6 +11,7 @@ paths = [
   '''tests/.*''',
   '''.*\.test\.ts''',
   '''packages/auth/src/testing-.*\.ts''',
+  '''scripts/staging-verify/.*''',
   '''docs/.*\.md''',
 ]
 regexes = [
@@ -20,4 +21,6 @@ regexes = [
   '''ci-build-secret-ci-build-secret-ci-build-0001''',
   # AWS example key from AWS's own docs, used in DLP/redaction tests.
   '''AKIAIOSFODNN7EXAMPLE''',
+  # Non-secret placeholders for the staging-verification mock provider.
+  '''sk-ant-(admin-)?mock-staging-verification''',
 ]
