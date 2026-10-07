@@ -127,13 +127,18 @@ export function readZip(buf: Buffer): Map<string, Buffer> {
     const local = buf.readUInt32LE(p + 42);
     const name = buf.subarray(p + 46, p + 46 + nlen).toString("utf8");
     p += 46 + nlen + elen + clen;
-    if (usize > MAX_ENTRY_BYTES || (total += usize) > MAX_ENTRY_BYTES * 2) throw new Error("ZIP package is too large when inflated.");
+    // `usize` here is the attacker-declared uncompressed size — never trust it for the
+    // aggregate budget. We cap each entry's real inflation (maxOutputLength) and sum the
+    // ACTUAL inflated bytes below, so a package that lies about its sizes cannot OOM us.
+    if (usize > MAX_ENTRY_BYTES) throw new Error("ZIP package is too large when inflated.");
     if (!/\.xml$|\.rels$/.test(name)) continue;
     const lnlen = buf.readUInt16LE(local + 26);
     const lelen = buf.readUInt16LE(local + 28);
     const data = buf.subarray(local + 30 + lnlen + lelen, local + 30 + lnlen + lelen + csize);
-    if (method === 0) out.set(name, Buffer.from(data));
-    else if (method === 8) out.set(name, inflateRawSync(data, { maxOutputLength: MAX_ENTRY_BYTES }));
+    const inflated = method === 0 ? Buffer.from(data) : method === 8 ? inflateRawSync(data, { maxOutputLength: MAX_ENTRY_BYTES }) : null;
+    if (!inflated) continue;
+    if ((total += inflated.length) > MAX_ENTRY_BYTES * 2) throw new Error("ZIP package is too large when inflated.");
+    out.set(name, inflated);
   }
   return out;
 }
@@ -232,7 +237,10 @@ export function pdfToText(buf: Buffer): Extraction {
     } else if (/\/Filter/.test(dict)) continue;
     if (!/T[Jj*']|"/.test(content)) continue;
     const lines: string[] = [];
-    for (const t of content.matchAll(/\[((?:\([^)]*(?:\\\)[^)]*)*\)|[^\]])*)\]\s*TJ|\(((?:[^()\\]|\\.)*)\)\s*(?:Tj|'|")|(T\*|ET|Td|TD)/g)) {
+    // Linear scanner: the array branch captures up to the first "]" with a single
+    // quantifier (no nested quantifiers → no catastrophic backtracking / ReDoS),
+    // then the parenthesised strings are pulled from that captured content.
+    for (const t of content.matchAll(/\[([^\]]*)\]\s*TJ|\(((?:[^()\\]|\\.)*)\)\s*(?:Tj|'|")|(T\*|ET|Td|TD)/g)) {
       if (t[1] !== undefined) lines.push([...t[1].matchAll(/\(((?:[^()\\]|\\.)*)\)/g)].map((x) => pdfString(x[1]!)).join(""));
       else if (t[2] !== undefined) lines.push(pdfString(t[2]));
       else lines.push("\n");

@@ -1,5 +1,15 @@
 import { describe, expect, it } from "vitest";
 import { assertSafeOutboundUrl, isPrivateAddress } from "../../packages/security/src/url-guard";
+import { makeSafeLookup } from "../../packages/connectors/src/http";
+
+/** Drive the connect-time lookup with an injected resolver and collect its callback. */
+function connectLookup(allowPrivate: boolean, addresses: string[]): Promise<{ err: Error | null; result?: unknown }> {
+  const fakeResolve = ((_h: string, _o: unknown, cb: (e: null, a: Array<{ address: string; family: number }>) => void) =>
+    cb(null, addresses.map((a) => ({ address: a, family: a.includes(":") ? 6 : 4 })))) as never;
+  return new Promise((resolve) => {
+    makeSafeLookup(allowPrivate, fakeResolve)("host.example", { all: true } as never, ((err: Error | null, result: unknown) => resolve({ err, result })) as never);
+  });
+}
 
 /**
  * SECURITY: SSRF guard bypasses (packages/security/src/url-guard.ts).
@@ -32,19 +42,18 @@ describe("SSRF guard — bypasses that must be closed", () => {
     await expect(assertSafeOutboundUrl("https://[::ffff:7f00:1]/")).rejects.toMatchObject({ code: "VALIDATION_FAILED" });
   });
 
-  // DNS rebinding / TOCTOU: the guard validates the resolved IP but returns a URL with the
-  // hostname intact, and the caller's fetch re-resolves it independently. A guard that pins
-  // the checked address would expose it on the returned URL (host = the vetted IP literal).
-  it("pins the resolved address so the fetch cannot be rebound to a private IP", async () => {
-    const seen: string[] = [];
-    const url = await assertSafeOutboundUrl("https://rebind.example/path", {
-      resolve: async (h) => {
-        seen.push(h);
-        return ["203.0.113.10"]; // first resolution: public
-      },
-    });
-    // Secure behaviour: the returned URL targets the vetted IP, not the re-resolvable hostname.
-    expect(url.hostname).toBe("203.0.113.10");
+  // DNS rebinding / TOCTOU: the address actually connected to must be validated, so a host
+  // that resolves to a private address at connect time is rejected inside the dispatcher —
+  // not only at the earlier pre-check (which the socket's own resolution could bypass).
+  it("connect-time lookup rejects a host that resolves to a private/metadata address", async () => {
+    expect((await connectLookup(false, ["169.254.169.254"])).err).toBeTruthy();
+    expect((await connectLookup(false, ["10.0.0.5"])).err).toBeTruthy();
+    expect((await connectLookup(false, ["::ffff:7f00:1"])).err).toBeTruthy();
+  });
+  it("connect-time lookup allows a genuine public address", async () => {
+    const r = await connectLookup(false, ["93.184.216.34"]);
+    expect(r.err).toBeNull();
+    expect(r.result).toHaveLength(1);
   });
 });
 

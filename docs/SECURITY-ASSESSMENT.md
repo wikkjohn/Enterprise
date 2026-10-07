@@ -8,12 +8,12 @@ production-mode build. This is a point-in-time assessment of the user's own
 code, run before first production deploy; no third parties or external systems
 were touched.
 
-Each finding has an executable regression test under `tests/security/**` that
-asserts the **secure** behaviour, so the tests for open findings fail today and
-will pass once the finding is fixed. Run them with `pnpm test:security`. The
-`Security` CI workflow (`.github/workflows/security.yml`) runs them in a
-non-blocking job, and adds dependency-audit (blocking on high/critical shipped
-deps) and secret-scanning (gitleaks) jobs.
+Every finding has been fixed. Each is covered by an executable regression test
+in the normal `unit` / `integration` suites that asserts the **secure**
+behaviour (it would fail if the fix regressed); the main CI `check` job runs
+them with `pnpm test`. The `Security` CI workflow
+(`.github/workflows/security.yml`) adds dependency-audit (blocking on
+high/critical shipped deps) and secret-scanning (gitleaks) jobs.
 
 Severity key: **Critical** — cross-tenant compromise reachable by a tenant;
 **High** — account/tenant compromise or guard bypass with a realistic path;
@@ -24,18 +24,32 @@ Severity key: **Critical** — cross-tenant compromise reachable by a tenant;
 
 ## Summary
 
-| # | Sev | Finding | Area | Test (expected red) |
-|---|-----|---------|------|---------------------|
-| 1 | Critical | SSO JIT provisioning takes over any existing account and pivots across tenants | SSO | **FIXED** — `tests/integration/security-sso.test.ts` (now a passing guard) |
-| 2 | High | SSO `defaultRoleKey` lets `org.security.manage` mint `org_admin` | SSO / RBAC | **FIXED** — `tests/integration/security-sso-rolekey.test.ts` |
-| 3 | High | SSRF guard bypass: IPv4-mapped IPv6 hex form reaches loopback / metadata | SSRF | `tests/security/security-ssrf.test.ts` |
-| 4 | High | SSRF via DNS rebinding — no IP pinning between check and fetch; leaks connector credentials | SSRF | `security-ssrf.test.ts` (pins the resolved address) |
-| 5 | High | PDF parser ReDoS hangs the event loop (worker-wide DoS), run inline | Upload | `tests/security/security-upload.test.ts` |
-| 6 | Medium | Zip-bomb aggregate-memory guard trusts the attacker-declared uncompressed size | Upload | (documented; no executable PoC — see note) |
-| 7 | Medium | Separation-of-duties bypass via invitation / SSO JIT | RBAC | `tests/security/security-rbac.test.ts` |
-| 8 | Medium | MFA (TOTP) verification has no per-account brute-force lockout | Auth | (documented) |
-| 9 | Medium | `ALLOW_PRIVATE_NETWORK_EGRESS` is a global SSRF kill-switch only *warned* in production | Config | (documented) |
-| 10 | Low | Transitive dependency advisories (`postcss` via `next`, 2×high) | Deps | CI `dependency-audit` job |
+**All findings below are fixed.** Each has a passing regression guard in the
+default suite (`pnpm test`) — the detailed per-finding sections further down
+retain the original (vulnerable) analysis for the record.
+
+| # | Sev | Finding | Area | Status / guard |
+|---|-----|---------|------|----------------|
+| 1 | Critical | SSO JIT provisioning takes over any existing account and pivots across tenants | SSO | ✅ `tests/integration/security-sso.test.ts` |
+| 2 | High | SSO `defaultRoleKey` lets `org.security.manage` mint `org_admin` | SSO / RBAC | ✅ `tests/integration/security-sso-rolekey.test.ts` |
+| 3 | High | SSRF guard bypass: IPv4-mapped IPv6 hex form reaches loopback / metadata | SSRF | ✅ `tests/unit/security-ssrf.test.ts` |
+| 4 | High | SSRF via DNS rebinding — no IP pinning between check and fetch; leaks connector credentials | SSRF | ✅ `tests/unit/security-ssrf.test.ts` (connect-time lookup) |
+| 5 | High | PDF parser ReDoS hangs the event loop (worker-wide DoS), run inline | Upload | ✅ `tests/unit/security-upload.test.ts` |
+| 6 | Medium | Zip-bomb aggregate-memory guard trusts the attacker-declared uncompressed size | Upload | ✅ fixed (counts real inflated bytes) |
+| 7 | Medium | Separation-of-duties bypass via invitation / SSO JIT | RBAC | ✅ `tests/integration/security-rbac.test.ts` |
+| 8 | Medium | MFA (TOTP) verification has no per-account brute-force lockout | Auth | ✅ `tests/integration/security-mfa.test.ts` |
+| 9 | Medium | `ALLOW_PRIVATE_NETWORK_EGRESS` is a global SSRF kill-switch only *warned* in production | Config | ✅ `tests/unit/security-config.test.ts` |
+| 10 | Low | Transitive dependency advisories (`postcss` via `next`, 2×high) | Deps | ✅ pnpm override + CI `dependency-audit` |
+
+### What changed, by finding
+
+- **#3** `isPrivateAddress` now converts IPv4-mapped IPv6 in hex-group form (`::ffff:7f00:1`) to dotted IPv4 before the private-range check, and matches the whole `fe80::/10` link-local block.
+- **#4** The connector guarded fetch (`packages/connectors/src/http.ts`) now runs through an undici dispatcher whose DNS `lookup` re-validates every connect-time address and rejects private/loopback/metadata ones — so the address actually connected to is always the vetted one (DNS rebinding closed), while the hostname is kept for TLS SNI.
+- **#5** The PDF text-operator scan was rewritten to a single-quantifier (linear) regex — no nested quantifiers, no catastrophic backtracking.
+- **#6** `readZip` now budgets the **actual** inflated byte count (per-entry cap unchanged), ignoring the attacker-declared `usize`.
+- **#7** Separation-of-duties is enforced on every grant path: `invite` rejects a conflicting role pair up front, and `grantInternal` re-checks against the membership's current roles (covers invitation acceptance and SSO JIT).
+- **#8** `verifyMfa` counts failures on the pending session (`sessions.mfa_failed_count`, migration `0002`) and revokes it after 5, independent of IP.
+- **#9** `loadEnv` hard-fails in production when `ALLOW_PRIVATE_NETWORK_EGRESS` is set without `ALLOW_PRIVATE_NETWORK_EGRESS_IN_PRODUCTION`, and the guard honours the flag in prod only with that acknowledgement.
 
 **Verified secure** (held under testing — see the bottom section), including the
 database-role deliverable: all per-org isolation checks pass under the runtime
@@ -400,7 +414,10 @@ on them. Remediate by forcing a patched version:
 ## Running the suite
 
 ```
-pnpm test:security          # the findings' regression tests (expected red until fixed)
-pnpm test                   # the normal suite, incl. the passing RLS isolation guard
+pnpm test                   # the normal suite, incl. every security regression guard above
 pnpm audit --prod --audit-level high   # dependency gate (as CI runs it)
 ```
+
+The regression guards now live in the normal `unit` / `integration` suites, so
+the main CI `check` job runs them; `.github/workflows/security.yml` adds the
+dependency audit and gitleaks secret scan.

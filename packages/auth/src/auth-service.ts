@@ -14,6 +14,7 @@ import { AppError, SYSTEM_ACTOR, type Actor, type RequestMeta, type TenantContex
 import { type SessionManager, type SessionRecord, type SessionUser } from "./sessions";
 
 const MAX_FAILED_LOGINS = 5;
+const MAX_MFA_ATTEMPTS = 5;
 const LOCKOUT_MINUTES = 15;
 const GENERIC_LOGIN_ERROR = "Invalid email or password.";
 
@@ -157,7 +158,14 @@ export function createAuthService(deps: {
       if (!u?.mfaSecretRef || !u.mfaEnabled) throw new AppError("UNAUTHENTICATED");
       const secret = await secrets.get(u.mfaSecretRef, null);
       if (!verifyTotp(secret, code)) {
-        await auditFor(u.id, v.session.activeOrganizationId, userActor(u), meta, { action: AuditActions.LOGIN_FAILED, outcome: "failure", metadata: { reason: "bad_mfa_code" } });
+        const failed = await sessions.recordMfaFailure(v.session.id);
+        await auditFor(u.id, v.session.activeOrganizationId, userActor(u), meta, { action: AuditActions.LOGIN_FAILED, outcome: "failure", metadata: { reason: "bad_mfa_code", attempts: failed } });
+        if (failed >= MAX_MFA_ATTEMPTS) {
+          // Per-session lockout, independent of the per-IP request limit: a distributed or
+          // header-spoofing attacker still gets at most MAX_MFA_ATTEMPTS codes per session.
+          await sessions.revoke(v.session.id, "mfa_failed");
+          throw new AppError("UNAUTHENTICATED", "Too many invalid verification codes. Please sign in again.");
+        }
         throw new AppError("UNAUTHENTICATED", "Invalid verification code.");
       }
       await sessions.completeMfa(v.session.id);

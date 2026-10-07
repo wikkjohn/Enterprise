@@ -12,8 +12,10 @@ export const envSchema = z.object({
   LOCAL_SECRETS_KEY: z.string().optional(),
   ALLOW_LOCAL_SECRETS_IN_PRODUCTION: z.string().optional(),
   ALLOW_SELF_SERVE_SIGNUP: bool,
-  /** Allow connectors/webhooks to reach private networks (dev / on-prem only). */
+  /** Allow connectors/webhooks to reach private networks (dev / on-prem only). Disables the SSRF guard. */
   ALLOW_PRIVATE_NETWORK_EGRESS: bool,
+  /** Explicit acknowledgement required to honour ALLOW_PRIVATE_NETWORK_EGRESS in production. */
+  ALLOW_PRIVATE_NETWORK_EGRESS_IN_PRODUCTION: bool,
   LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
   ANTHROPIC_API_KEY: z.string().optional(),
   OPENAI_API_KEY: z.string().optional(),
@@ -31,7 +33,14 @@ export function loadEnv(source: Record<string, string | undefined> = process.env
   const env = parsed.data;
   if (env.APP_ENV === "production") {
     if (!env.APP_URL.startsWith("https://")) throw new Error("APP_URL must be https in production");
-    if (env.ALLOW_PRIVATE_NETWORK_EGRESS) console.warn("[eaop] ALLOW_PRIVATE_NETWORK_EGRESS is enabled in production");
+    // Fail closed: the blanket egress flag turns off SSRF protection platform-wide, so in
+    // production it must be acknowledged explicitly rather than silently honoured.
+    if (env.ALLOW_PRIVATE_NETWORK_EGRESS && !env.ALLOW_PRIVATE_NETWORK_EGRESS_IN_PRODUCTION) {
+      throw new Error(
+        "ALLOW_PRIVATE_NETWORK_EGRESS disables the SSRF guard (private/loopback/metadata egress). In production it also requires ALLOW_PRIVATE_NETWORK_EGRESS_IN_PRODUCTION=true to acknowledge the risk; prefer a per-host allowlist instead.",
+      );
+    }
+    if (env.ALLOW_PRIVATE_NETWORK_EGRESS) console.warn("[eaop] ALLOW_PRIVATE_NETWORK_EGRESS is enabled in production — the SSRF guard is disabled");
   }
   return env;
 }

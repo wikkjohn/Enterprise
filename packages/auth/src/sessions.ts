@@ -1,4 +1,4 @@
-import { and, eq, gt, isNull, ne, sessions, users, type Database } from "@eaop/db";
+import { and, eq, gt, isNull, ne, sessions, sql, users, type Database } from "@eaop/db";
 import { randomToken, sha256 } from "@eaop/security";
 import { type Uuid } from "@eaop/shared-types";
 
@@ -8,6 +8,7 @@ export interface SessionRecord {
   activeOrganizationId: Uuid | null;
   authMethod: "password" | "oidc" | "saml";
   mfaPending: boolean;
+  mfaFailedCount: number;
   mfaVerifiedAt: Date | null;
   createdAt: Date;
   lastSeenAt: Date;
@@ -91,7 +92,15 @@ export class SessionManager {
   }
 
   async completeMfa(sessionId: Uuid) {
-    await this.db.withSystem("sessions.mfa", (tx) => tx.update(sessions).set({ mfaPending: false, mfaVerifiedAt: new Date() }).where(eq(sessions.id, sessionId)));
+    await this.db.withSystem("sessions.mfa", (tx) => tx.update(sessions).set({ mfaPending: false, mfaVerifiedAt: new Date(), mfaFailedCount: 0 }).where(eq(sessions.id, sessionId)));
+  }
+
+  /** Record a failed second-factor attempt on a session; returns the new failure count. */
+  async recordMfaFailure(sessionId: Uuid): Promise<number> {
+    const [row] = await this.db.withSystem("sessions.mfa_fail", (tx) =>
+      tx.update(sessions).set({ mfaFailedCount: sql`${sessions.mfaFailedCount} + 1` }).where(eq(sessions.id, sessionId)).returning({ n: sessions.mfaFailedCount }),
+    );
+    return row?.n ?? 0;
   }
 
   async revoke(sessionId: Uuid, reason: string) {
